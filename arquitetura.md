@@ -73,6 +73,30 @@ Postgres no mesmo host, `pg_dump` diário cifrado pra object storage.
 | `venda.numero` | Atribuído na chegada, **não é cronológico**. Documentado. Vira restrição real se houver NFC-e |
 | Venda que sobe após fechamento do caixa | Sessão fechada **nunca** tem número alterado em silêncio: marca `tem_ajuste_posterior`, grava delta no audit, alerta o admin |
 
+### 2.1 Trava de fechamento e premissa de terminal unico
+
+**PREMISSA DA FASE 1: UM UNICO TERMINAL DE PDV.**
+
+O fechamento e a operacao que converte o ledger em numero contabil. Ele **recusa**
+enquanto houver venda pendente na fila local do dispositivo:
+
+- a UI bloqueia o botao e mostra quantas vendas faltam subir;
+- a API rejeita fechamento quando o cliente informa `fila_pendente > 0`;
+- nao existe "fechar por cima". A saida e aguardar a internet ou cancelar as
+  vendas pendentes explicitamente, com registro no audit.
+
+Fechar com fila pendente calcularia `valor_esperado` sem vendas que existem:
+gera diferenca fantasma e, pior, mascara divergencia real de caixa.
+
+**Fora de escopo nesta fase:** fechamento sincronizado multi-terminal. Com dois ou
+mais PDVs a trava deixa de ser local e vira consenso distribuido -- nenhum terminal
+sabe sozinho se os outros tem fila pendente. Isso exige desenho proprio e nao sera
+inventado agora. Enquanto for um terminal, a fila local e informacao completa.
+
+A trava **nao** dispensa `tem_ajuste_posterior` (§2): cancelamento de venda, ajuste
+retroativo de estoque e correcao administrativa continuam podendo tocar uma sessao
+ja fechada.
+
 ### O que NÃO funciona offline (aceito)
 Relatórios, cadastro, entrada de mercadoria, fechamento. Tudo admin.
 
