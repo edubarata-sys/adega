@@ -3,3 +3,10 @@ dist
 coverage
 pnpm-lock.yaml
 packages/db/drizzle
+
+# Documentos de conteudo/prosa: Prettier reformata markdown de forma que pode
+# mudar o sentido visual (ex.: transformou uma continuacao "VENDA + ESTOQUE"
+# em lista com "-", quebrando a leitura pretendida). Nao sao codigo/config.
+arquitetura.md
+projeto-sistema-adega.md
+docs/**
