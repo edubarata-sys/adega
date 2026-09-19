@@ -4,6 +4,7 @@ import { caixaAtual, eu, type SessaoCaixaApi, type UsuarioSessao } from './api'
 import { FecharCaixaTela } from './FecharCaixaTela'
 import { LoginTela } from './LoginTela'
 import { PdvTela } from './PdvTela'
+import { ProdutosTela } from './ProdutosTela'
 
 type Estado =
   | { fase: 'carregando' }
@@ -11,6 +12,7 @@ type Estado =
   | { fase: 'abrindo-caixa'; usuario: UsuarioSessao }
   | { fase: 'pdv'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
   | { fase: 'fechando-caixa'; usuario: UsuarioSessao }
+  | { fase: 'produtos'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
 
 /**
  * Orquestrador do fluxo ponta a ponta do PDV (PASSO 7 da missao):
@@ -84,10 +86,23 @@ export function App() {
     )
   }
 
+  if (estado.fase === 'produtos') {
+    return (
+      <ProdutosTela
+        aoVoltar={() =>
+          setEstado({ fase: 'pdv', usuario: estado.usuario, sessaoCaixa: estado.sessaoCaixa })
+        }
+      />
+    )
+  }
+
   return (
     <PdvTela
       operadorNome={estado.usuario.nome}
       aoQuererFecharCaixa={() => setEstado({ fase: 'fechando-caixa', usuario: estado.usuario })}
+      aoQuererGerenciarProdutos={() =>
+        setEstado({ fase: 'produtos', usuario: estado.usuario, sessaoCaixa: estado.sessaoCaixa })
+      }
     />
   )
 }

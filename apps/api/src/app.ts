@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import type { DependenciasApp } from './dependencias'
 import { registrarRotasAuth } from './routes/auth'
 import { registrarRotasCaixa } from './routes/caixa'
+import { registrarRotasCategorias } from './routes/categorias'
 import { registrarRotasDiagnostico } from './routes/diagnostico'
 import { registrarRotasProdutos } from './routes/produtos'
 import { registrarRotasRecibo } from './routes/recibo'
@@ -56,6 +57,7 @@ export function buildApp(deps: DependenciasApp): FastifyInstance {
 
   registrarRotasAuth(app, deps)
   registrarRotasProdutos(app, deps)
+  registrarRotasCategorias(app, deps)
   registrarRotasCaixa(app, deps)
   registrarRotasVendas(app, deps)
   registrarRotasRecibo(app, deps)

@@ -161,3 +161,82 @@ export function buscarRecibo(vendaId: string) {
  * compartilhado), alem de continuar funcionando quando o ambiente roda
  * completo no PC da loja.
  */
+
+/**
+ * PASSO 10: cadastro/estoque de produtos. `ProdutoCadastroApi` e o formato
+ * COMPLETO de produto (todos os campos editaveis) -- diferente de
+ * `ProdutoApi` acima, que e so o subconjunto usado na busca do balcao.
+ */
+export interface ProdutoCadastroApi {
+  readonly id: string
+  readonly ean: string | null
+  readonly descricao: string
+  readonly descricaoPdv: string | null
+  readonly unidade: 'UN' | 'KG' | 'L'
+  readonly categoriaId: string | null
+  readonly precoVenda: number
+  readonly custoMedio: number
+  readonly estoqueMinimo: number | string | null
+  readonly ativo: boolean
+  readonly estoqueAtual: number | string | null
+}
+
+export interface CategoriaApi {
+  readonly id: string
+  readonly nome: string
+}
+
+export function listarCategorias() {
+  return requisitar<{ categorias: CategoriaApi[] }>('/categorias')
+}
+
+export function criarCategoria(nome: string) {
+  return requisitar<{ categoria: CategoriaApi }>('/categorias', {
+    method: 'POST',
+    body: JSON.stringify({ nome }),
+  })
+}
+
+export function listarProdutosCadastro(q?: string) {
+  const query = q && q.trim().length > 0 ? `?q=${encodeURIComponent(q.trim())}` : ''
+  return requisitar<{ produtos: ProdutoCadastroApi[] }>(`/produtos/cadastro${query}`)
+}
+
+export interface DadosProdutoForm {
+  readonly descricao: string
+  readonly ean?: string
+  readonly descricaoPdv?: string
+  readonly unidade?: 'UN' | 'KG' | 'L'
+  readonly categoriaId?: string
+  readonly precoVenda: number
+  readonly custoMedio?: number
+  readonly estoqueMinimo?: number
+  readonly estoqueInicial?: number
+  readonly ativo?: boolean
+}
+
+export function criarProduto(dados: DadosProdutoForm) {
+  return requisitar<{ produto: ProdutoCadastroApi }>('/produtos', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export function atualizarProduto(id: string, dados: DadosProdutoForm) {
+  return requisitar<{ produto: ProdutoCadastroApi }>(`/produtos/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
+}
+
+export function ajustarEstoque(
+  produtoId: string,
+  tipo: 'entrada' | 'perda' | 'ajuste',
+  quantidade: number,
+  observacao?: string,
+) {
+  return requisitar<{ produto: ProdutoCadastroApi }>(
+    `/produtos/${encodeURIComponent(produtoId)}/estoque`,
+    { method: 'POST', body: JSON.stringify({ tipo, quantidade, observacao }) },
+  )
+}

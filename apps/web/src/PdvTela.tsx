@@ -22,6 +22,7 @@ import {
 interface Props {
   readonly operadorNome: string
   readonly aoQuererFecharCaixa: () => void
+  readonly aoQuererGerenciarProdutos: () => void
 }
 
 function reaisParaCentavos(texto: string): number {
@@ -39,7 +40,7 @@ function reaisParaCentavos(texto: string): number {
  * comporta como teclado (digita os digitos e um Enter no final), entao nao
  * precisa de nenhum SDK -- so um input de texto que reage a Enter.
  */
-export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
+export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarProdutos }: Props) {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [eanTexto, setEanTexto] = useState('')
   const [erroBusca, setErroBusca] = useState<string | null>(null)
@@ -222,6 +223,9 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
         <h1>PDV</h1>
         <span>
           Operador: {operadorNome}{' '}
+          <button type="button" onClick={aoQuererGerenciarProdutos}>
+            Produtos
+          </button>{' '}
           <button type="button" onClick={aoQuererFecharCaixa}>
             Fechar caixa
           </button>
