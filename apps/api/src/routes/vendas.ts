@@ -29,6 +29,11 @@ const ItemBodySchema = z.object({
 const PagamentoBodySchema = z.object({
   forma: z.enum(FORMAS_PAGAMENTO),
   valor: z.number().int().positive(),
+  /** Qual maquininha fisica recebeu o pagamento (a loja tem duas) --
+   * so faz sentido pra debito/credito, mas nao e validado contra a forma
+   * aqui: o operador escolhe na tela, o servidor so guarda o que veio.
+   * Usado depois pra separar o relatorio de vendas por maquininha. */
+  terminalApelido: z.string().trim().min(1).max(60).optional(),
 })
 
 const VendaBodySchema = z.object({
@@ -254,9 +259,12 @@ export function registrarRotasVendas(app: FastifyInstance, deps: DependenciasApp
     // do codigo que sabe disso, para que trocar por um adapter real
     // (Rede/Itau/TEF, fora de escopo desta missao) nao exija tocar o resto
     // desta rota.
-    const processamentos = pagamentosNormalizados.map((p) => ({
+    const processamentos = pagamentosNormalizados.map((p, indice) => ({
       pagamento: p,
       resultado: ManualAdapter.processar(p),
+      // Nao faz parte do dominio puro (core/venda.ts) -- e so um rotulo
+      // do operador pra separar o relatorio de vendas por maquininha depois.
+      terminalApelido: corpo.pagamentos[indice]?.terminalApelido ?? null,
     }))
     const naoConfirmado = processamentos.find((p) => !p.resultado.confirmado)
     if (naoConfirmado) {
@@ -311,13 +319,14 @@ export function registrarRotasVendas(app: FastifyInstance, deps: DependenciasApp
           })
         }
 
-        for (const { pagamento, resultado } of processamentos) {
+        for (const { pagamento, resultado, terminalApelido } of processamentos) {
           await tx.insert(schema.pagamentos).values({
             id: crypto.randomUUID(),
             vendaId,
             forma: pagamento.forma,
             valor: pagamento.valor,
             troco: pagamento.forma === 'dinheiro' ? troco : 0,
+            terminalApelido,
             // Campos de adquirente vem do adapter, nunca inventados aqui --
             // com o ManualAdapter sao sempre nulos (ver pagamento-adapter.ts).
             adquirente: resultado.adquirente,

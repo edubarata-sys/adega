@@ -119,6 +119,7 @@ export interface ItemVendaApi {
 export interface PagamentoVendaApi {
   readonly forma: FormaPagamento
   readonly valor: number
+  readonly terminalApelido?: string
 }
 
 export interface VendaConfirmadaApi {

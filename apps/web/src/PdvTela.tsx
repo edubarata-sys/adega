@@ -50,6 +50,10 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
   const [valorPagamentoTexto, setValorPagamentoTexto] = useState('')
   const [pagamentos, setPagamentos] = useState<PagamentoInformado[]>([])
   const [erroPagamento, setErroPagamento] = useState<string | null>(null)
+  // A loja tem duas maquininhas fisicas -- so aparece pra debito/credito, e
+  // so serve pra separar o relatorio de vendas depois (Task #11/#12).
+  const [terminalApelido, setTerminalApelido] = useState<string | null>(null)
+  const ehPagamentoDeCartao = formaPagamento === 'debito' || formaPagamento === 'credito'
 
   const [enviandoVenda, setEnviandoVenda] = useState(false)
   const [erroVenda, setErroVenda] = useState<string | null>(null)
@@ -118,8 +122,14 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
       setErroPagamento('Informe um valor de pagamento maior que zero.')
       return
     }
-    setPagamentos((atual) => [...atual, { forma: formaPagamento, valor: centavos(valor) }])
+    const pagamento: PagamentoInformado = {
+      forma: formaPagamento,
+      valor: centavos(valor),
+      ...(ehPagamentoDeCartao && terminalApelido ? { terminalApelido } : {}),
+    }
+    setPagamentos((atual) => [...atual, pagamento])
     setValorPagamentoTexto('')
+    setTerminalApelido(null)
   }
 
   function removerPagamento(indice: number) {
@@ -292,7 +302,10 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
             Forma
             <select
               value={formaPagamento}
-              onChange={(e) => setFormaPagamento(e.target.value as FormaPagamento)}
+              onChange={(e) => {
+                setFormaPagamento(e.target.value as FormaPagamento)
+                setTerminalApelido(null)
+              }}
               style={{ display: 'block' }}
             >
               {FORMAS_PAGAMENTO.map((forma) => (
@@ -302,6 +315,26 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
               ))}
             </select>
           </label>
+          {ehPagamentoDeCartao && (
+            <div>
+              Maquininha
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['Maquininha 1', 'Maquininha 2'].map((apelido) => (
+                  <button
+                    key={apelido}
+                    type="button"
+                    onClick={() => setTerminalApelido(apelido)}
+                    style={{
+                      fontWeight: terminalApelido === apelido ? 'bold' : 'normal',
+                      outline: terminalApelido === apelido ? '2px solid #16a34a' : undefined,
+                    }}
+                  >
+                    {apelido}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <label>
             Valor (R$)
             <input
@@ -321,7 +354,8 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa }: Props) {
         <ul>
           {pagamentos.map((p, indice) => (
             <li key={indice}>
-              {p.forma}: {formatarBRL(p.valor)}{' '}
+              {p.forma}
+              {p.terminalApelido ? ` (${p.terminalApelido})` : ''}: {formatarBRL(p.valor)}{' '}
               <button type="button" onClick={() => removerPagamento(indice)}>
                 remover
               </button>

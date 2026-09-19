@@ -309,6 +309,16 @@ export const pagamentos = pgTable(
     autorizacao: text(),
     bandeira: text(),
     parcelas: integer(),
+
+    /**
+     * Apelido informado pelo operador pra identificar QUAL maquininha fisica
+     * recebeu o pagamento (ex.: "Maquininha 1", "Itau"), quando ha mais de
+     * uma na loja. Texto livre de proposito -- nao e integracao com
+     * adquirente (isso continua fora do escopo, ver campos acima), so
+     * permite separar o relatorio de vendas por maquininha depois. Nulo pra
+     * pagamentos em dinheiro/pix ou quando so existe uma maquininha.
+     */
+    terminalApelido: text(),
   },
   (t) => [
     index('pagamentos_venda_idx').on(t.vendaId),

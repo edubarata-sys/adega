@@ -54,6 +54,9 @@ export function atualizarQuantidade(
 export interface PagamentoInformado {
   readonly forma: 'dinheiro' | 'pix' | 'debito' | 'credito' | 'voucher'
   readonly valor: Centavos
+  /** Qual maquininha fisica recebeu (a loja tem duas) -- so faz sentido
+   * pra debito/credito. Usado depois pra separar o relatorio por maquininha. */
+  readonly terminalApelido?: string
 }
 
 export function totalPagamentos(pagamentos: readonly PagamentoInformado[]): Centavos {

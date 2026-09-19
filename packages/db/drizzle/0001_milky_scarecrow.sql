@@ -1,0 +1,1 @@
+ALTER TABLE "pagamentos" ADD COLUMN "terminal_apelido" text;
