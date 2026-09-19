@@ -102,7 +102,12 @@ describe('invariante de saldo de estoque (schema real via pglite)', () => {
     await preparaProdutoEUsuario(ctx.db)
     const t0 = new Date('2026-09-01T10:00:00Z')
 
-    await aplicaMovimento(ctx.db, { id: crypto.randomUUID(), tipo: 'entrada', delta: 100, ocorridoEm: t0 })
+    await aplicaMovimento(ctx.db, {
+      id: crypto.randomUUID(),
+      tipo: 'entrada',
+      delta: 100,
+      ocorridoEm: t0,
+    })
     await aplicaMovimento(ctx.db, {
       id: crypto.randomUUID(),
       tipo: 'venda',
@@ -125,7 +130,12 @@ describe('invariante de saldo de estoque (schema real via pglite)', () => {
     const t0 = new Date('2026-09-01T10:00:00Z')
 
     // Entrada de estoque, registrada normalmente.
-    await aplicaMovimento(ctx.db, { id: crypto.randomUUID(), tipo: 'entrada', delta: 50, ocorridoEm: t0 })
+    await aplicaMovimento(ctx.db, {
+      id: crypto.randomUUID(),
+      tipo: 'entrada',
+      delta: 50,
+      ocorridoEm: t0,
+    })
 
     // Venda das 20h chega ANTES (o caixa sincronizou primeiro).
     await aplicaMovimento(ctx.db, {

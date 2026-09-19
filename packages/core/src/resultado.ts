@@ -13,7 +13,8 @@ export interface ErroDominio {
   readonly mensagem: string
 }
 
-export type Resultado<T> = { readonly ok: true; readonly valor: T } | { readonly ok: false; readonly erro: ErroDominio }
+export type Resultado<T> =
+  { readonly ok: true; readonly valor: T } | { readonly ok: false; readonly erro: ErroDominio }
 
 export function ok<T>(valor: T): Resultado<T> {
   return { ok: true, valor }

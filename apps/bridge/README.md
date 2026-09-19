@@ -38,7 +38,7 @@ para que o resultado valha tambem para o hardware e a rede de la.
 2. **Copiar `bin/bridge-windows-amd64.exe` para a maquina alvo** (a da
    adega, ou por enquanto qualquer Windows com Chrome real) e executar.
    Uma janela de console vai mostrar `bridge (spike) ouvindo em
-   http://127.0.0.1:9100/health`. Deixar essa janela aberta.
+http://127.0.0.1:9100/health`. Deixar essa janela aberta.
 3. **Servir `spike-test.html` por HTTPS real** -- nao abrir como arquivo
    local (`file://`). Qualquer host HTTPS estatico serve para este teste
    pontual (o proprio deploy do app quando existir, ou qualquer static

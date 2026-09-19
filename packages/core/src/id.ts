@@ -52,11 +52,26 @@ export function uuidv7({ agoraMs, aleatorios }: EntradaUuidV7): string {
 
   const h = (i: number): string => HEX[bytes[i] as number] as string
   return (
-    h(0) + h(1) + h(2) + h(3) + '-' +
-    h(4) + h(5) + '-' +
-    h(6) + h(7) + '-' +
-    h(8) + h(9) + '-' +
-    h(10) + h(11) + h(12) + h(13) + h(14) + h(15)
+    h(0) +
+    h(1) +
+    h(2) +
+    h(3) +
+    '-' +
+    h(4) +
+    h(5) +
+    '-' +
+    h(6) +
+    h(7) +
+    '-' +
+    h(8) +
+    h(9) +
+    '-' +
+    h(10) +
+    h(11) +
+    h(12) +
+    h(13) +
+    h(14) +
+    h(15)
   )
 }
 

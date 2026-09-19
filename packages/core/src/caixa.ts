@@ -83,10 +83,11 @@ export function podeFecharCaixa(
   sessao: EstadoSessaoCaixa,
   dispositivo: EstadoDispositivo,
 ): Resultado<null> {
-  if (!Number.isInteger(dispositivo.vendasPendentesNaFila) || dispositivo.vendasPendentesNaFila < 0) {
-    throw new RangeError(
-      `Contagem de fila invalida: ${dispositivo.vendasPendentesNaFila}`,
-    )
+  if (
+    !Number.isInteger(dispositivo.vendasPendentesNaFila) ||
+    dispositivo.vendasPendentesNaFila < 0
+  ) {
+    throw new RangeError(`Contagem de fila invalida: ${dispositivo.vendasPendentesNaFila}`)
   }
   if (sessao.status === 'fechada') {
     return falha('CAIXA_JA_FECHADO', 'Esta sessao de caixa ja foi fechada.')

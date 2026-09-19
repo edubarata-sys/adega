@@ -57,7 +57,10 @@ export function calcularItem(item: ItemVenda): Resultado<ItemCalculado> {
 
   const bruto = multiplicarPorQuantidade(item.precoUnitario, item.quantidade)
   if (desconto > bruto) {
-    return falha('ITEM_DESCONTO_MAIOR_QUE_ITEM', 'Desconto do item nao pode exceder o valor do item.')
+    return falha(
+      'ITEM_DESCONTO_MAIOR_QUE_ITEM',
+      'Desconto do item nao pode exceder o valor do item.',
+    )
   }
 
   return ok({

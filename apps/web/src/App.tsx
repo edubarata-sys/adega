@@ -1,52 +1,93 @@
 import { useEffect, useState } from 'react'
+import { AbrirCaixaTela } from './AbrirCaixaTela'
+import { caixaAtual, eu, type SessaoCaixaApi, type UsuarioSessao } from './api'
+import { FecharCaixaTela } from './FecharCaixaTela'
+import { LoginTela } from './LoginTela'
+import { PdvTela } from './PdvTela'
 
-type EstadoSaude = { carregando: boolean; ok: boolean; detalhe: string }
+type Estado =
+  | { fase: 'carregando' }
+  | { fase: 'login' }
+  | { fase: 'abrindo-caixa'; usuario: UsuarioSessao }
+  | { fase: 'pdv'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
+  | { fase: 'fechando-caixa'; usuario: UsuarioSessao }
 
 /**
- * Tela minima do scaffold: confirma visualmente que web -> api -> banco
- * estao de pe. Sera substituida pelas telas reais da Fase 1 (produtos,
- * PDV, caixa). Nao e o PDV -- so a prova de que a esteira funciona.
+ * Orquestrador do fluxo ponta a ponta do PDV (PASSO 7 da missao):
+ * login -> abertura de caixa (se ainda nao houver uma sessao aberta) -> PDV.
+ *
+ * Isto NAO e um roteador (nao ha URLs de tela) -- Fase 1 e um unico
+ * terminal fazendo uma coisa de cada vez, entao uma maquina de estados
+ * simples e suficiente e mais facil de auditar que uma lib de rotas.
  */
 export function App() {
-  const [saude, setSaude] = useState<EstadoSaude>({ carregando: true, ok: false, detalhe: '' })
+  const [estado, setEstado] = useState<Estado>({ fase: 'carregando' })
 
   useEffect(() => {
     let cancelado = false
 
-    async function verificar() {
+    async function iniciar() {
       try {
-        const res = await fetch('/api/health/ready')
-        const corpo = (await res.json()) as { status: string; motivo?: string }
+        const { usuario } = await eu()
         if (cancelado) return
-        setSaude({
-          carregando: false,
-          ok: res.ok,
-          detalhe: res.ok ? 'API e banco respondendo' : (corpo.motivo ?? 'indisponivel'),
-        })
+        await avancarAposLogin(usuario)
       } catch {
-        if (!cancelado) setSaude({ carregando: false, ok: false, detalhe: 'API inalcancavel' })
+        if (!cancelado) setEstado({ fase: 'login' })
       }
     }
 
-    void verificar()
+    async function avancarAposLogin(usuario: UsuarioSessao) {
+      const { sessao } = await caixaAtual()
+      if (cancelado) return
+      setEstado(
+        sessao ? { fase: 'pdv', usuario, sessaoCaixa: sessao } : { fase: 'abrindo-caixa', usuario },
+      )
+    }
+
+    void iniciar()
     return () => {
       cancelado = true
     }
   }, [])
 
+  if (estado.fase === 'carregando') {
+    return <p style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>Carregando...</p>
+  }
+
+  if (estado.fase === 'login') {
+    return (
+      <LoginTela
+        aoAutenticar={(usuario) => {
+          setEstado({ fase: 'abrindo-caixa', usuario })
+          void caixaAtual().then(({ sessao }) => {
+            if (sessao) setEstado({ fase: 'pdv', usuario, sessaoCaixa: sessao })
+          })
+        }}
+      />
+    )
+  }
+
+  if (estado.fase === 'abrindo-caixa') {
+    return (
+      <AbrirCaixaTela
+        usuario={estado.usuario}
+        aoAbrir={(sessaoCaixa) => setEstado({ fase: 'pdv', usuario: estado.usuario, sessaoCaixa })}
+      />
+    )
+  }
+
+  if (estado.fase === 'fechando-caixa') {
+    return (
+      <FecharCaixaTela
+        aoFechar={() => setEstado({ fase: 'abrindo-caixa', usuario: estado.usuario })}
+      />
+    )
+  }
+
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 480 }}>
-      <h1>Sistema da Adega</h1>
-      <p>
-        Status:{' '}
-        {saude.carregando ? (
-          'verificando...'
-        ) : (
-          <strong style={{ color: saude.ok ? '#16a34a' : '#dc2626' }}>
-            {saude.ok ? 'operacional' : `indisponivel (${saude.detalhe})`}
-          </strong>
-        )}
-      </p>
-    </main>
+    <PdvTela
+      operadorNome={estado.usuario.nome}
+      aoQuererFecharCaixa={() => setEstado({ fase: 'fechando-caixa', usuario: estado.usuario })}
+    />
   )
 }

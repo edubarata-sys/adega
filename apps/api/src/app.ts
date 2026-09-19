@@ -1,20 +1,32 @@
+import cookie from '@fastify/cookie'
+import { sql } from 'drizzle-orm'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type { DependenciasApp } from './dependencias'
+import { registrarRotasAuth } from './routes/auth'
+import { registrarRotasCaixa } from './routes/caixa'
+import { registrarRotasDiagnostico } from './routes/diagnostico'
+import { registrarRotasProdutos } from './routes/produtos'
+import { registrarRotasRecibo } from './routes/recibo'
+import { registrarRotasVendas } from './routes/vendas'
 
-export interface DependenciasApp {
-  /** Abstracao minima de banco: soh o suficiente para checar readiness. */
-  readonly db: { ping: () => Promise<void> }
-  readonly versao: string
-}
+export type { DependenciasApp } from './dependencias'
 
 /**
  * Fabrica da aplicacao Fastify, separada do bootstrap (server.ts).
  *
  * Receber as dependencias por parametro (em vez de importar um client de
- * banco global) e o que permite testar as rotas com `app.inject` sem subir
- * Postgres de verdade -- o teste injeta um `db.ping` fake.
+ * banco global) e o que permite testar as rotas com `app.inject` -- contra
+ * pglite (ver packages/db/src/test-helpers.ts), nunca contra Postgres real
+ * subido de verdade.
  */
 export function buildApp(deps: DependenciasApp): FastifyInstance {
   const app = Fastify({ logger: false })
+
+  // Cookie httpOnly de sessao (arquitetura §4). `secret` aqui e so pra
+  // suportar cookies ASSINADOS PELO PLUGIN se algum dia forem usados; a
+  // sessao em si (seguranca/sessao.ts) tem a propria assinatura HMAC e nao
+  // depende deste segredo do plugin.
+  app.register(cookie)
 
   /**
    * Liveness: o processo esta de pe e respondendo. NAO depende do banco.
@@ -33,13 +45,20 @@ export function buildApp(deps: DependenciasApp): FastifyInstance {
    */
   app.get('/health/ready', async (_req, reply) => {
     try {
-      await deps.db.ping()
+      await deps.db.execute(sql`select 1`)
       return { status: 'ok' }
     } catch (erro) {
       const mensagem = erro instanceof Error ? erro.message : String(erro)
       return reply.code(503).send({ status: 'indisponivel', motivo: mensagem })
     }
   })
+
+  registrarRotasAuth(app, deps)
+  registrarRotasProdutos(app, deps)
+  registrarRotasCaixa(app, deps)
+  registrarRotasVendas(app, deps)
+  registrarRotasRecibo(app, deps)
+  registrarRotasDiagnostico(app)
 
   return app
 }

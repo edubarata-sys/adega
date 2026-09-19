@@ -1,235 +1,423 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bridge Localhost -- Spike Dia 1</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bridge Localhost -- Spike Dia 1</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
-  :root {
-    color-scheme: light;
-    --bg: #f7f5f0;
-    --surface: #ffffff;
-    --surface-2: #edeae1;
-    --ink: #1f2420;
-    --ink-muted: #5c655e;
-    --border: #dad4c7;
-    --accent: #a85a26;
-    --accent-ink: #ffffff;
-    --ok: #1e7a4c;
-    --ok-bg: #e6f2ea;
-    --fail: #b23a2e;
-    --fail-bg: #f7e9e7;
-    --pending: #93701a;
-    --pending-bg: #f2ecdc;
-    --shadow: 0 1px 2px rgba(31, 36, 32, 0.06), 0 8px 24px -12px rgba(31, 36, 32, 0.18);
-  }
+      :root {
+        color-scheme: light;
+        --bg: #f7f5f0;
+        --surface: #ffffff;
+        --surface-2: #edeae1;
+        --ink: #1f2420;
+        --ink-muted: #5c655e;
+        --border: #dad4c7;
+        --accent: #a85a26;
+        --accent-ink: #ffffff;
+        --ok: #1e7a4c;
+        --ok-bg: #e6f2ea;
+        --fail: #b23a2e;
+        --fail-bg: #f7e9e7;
+        --pending: #93701a;
+        --pending-bg: #f2ecdc;
+        --shadow: 0 1px 2px rgba(31, 36, 32, 0.06), 0 8px 24px -12px rgba(31, 36, 32, 0.18);
+      }
 
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme='light']) {
-      color-scheme: dark;
-      --bg: #14181a; --surface: #1b2023; --surface-2: #23292c;
-      --ink: #e8e9e4; --ink-muted: #93998f; --border: #333a3d;
-      --accent: #e0964a; --accent-ink: #1a1206;
-      --ok: #49c07f; --ok-bg: #17301f;
-      --fail: #e3695c; --fail-bg: #3a1e1a;
-      --pending: #e0b84a; --pending-bg: #3a3117;
-      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
-    }
-  }
-  :root[data-theme='dark'] {
-    color-scheme: dark;
-    --bg: #14181a; --surface: #1b2023; --surface-2: #23292c;
-    --ink: #e8e9e4; --ink-muted: #93998f; --border: #333a3d;
-    --accent: #e0964a; --accent-ink: #1a1206;
-    --ok: #49c07f; --ok-bg: #17301f;
-    --fail: #e3695c; --fail-bg: #3a1e1a;
-    --pending: #e0b84a; --pending-bg: #3a3117;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
-  }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          color-scheme: dark;
+          --bg: #14181a;
+          --surface: #1b2023;
+          --surface-2: #23292c;
+          --ink: #e8e9e4;
+          --ink-muted: #93998f;
+          --border: #333a3d;
+          --accent: #e0964a;
+          --accent-ink: #1a1206;
+          --ok: #49c07f;
+          --ok-bg: #17301f;
+          --fail: #e3695c;
+          --fail-bg: #3a1e1a;
+          --pending: #e0b84a;
+          --pending-bg: #3a3117;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+        }
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #14181a;
+        --surface: #1b2023;
+        --surface-2: #23292c;
+        --ink: #e8e9e4;
+        --ink-muted: #93998f;
+        --border: #333a3d;
+        --accent: #e0964a;
+        --accent-ink: #1a1206;
+        --ok: #49c07f;
+        --ok-bg: #17301f;
+        --fail: #e3695c;
+        --fail-bg: #3a1e1a;
+        --pending: #e0b84a;
+        --pending-bg: #3a3117;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
 
-  * { box-sizing: border-box; }
-  body { background: var(--bg); color: var(--ink); font-family: 'IBM Plex Sans', system-ui, sans-serif; margin: 0; padding: 2.5rem 1.5rem 4rem; }
-  main { max-width: 700px; margin: 0 auto; }
-  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.6rem; }
-  h1 { font-family: 'IBM Plex Mono', monospace; font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 600; letter-spacing: -0.01em; margin: 0 0 0.6rem; text-wrap: balance; }
-  .subtitle { color: var(--ink-muted); font-size: 1rem; line-height: 1.6; max-width: 60ch; margin: 0 0 2rem; }
-  code { font-family: 'IBM Plex Mono', monospace; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0.1em 0.4em; font-size: 0.9em; }
-  section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 1.4rem 1.5rem; margin-bottom: 1.25rem; }
-  .check-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
-  .check-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .check-row:first-child { padding-top: 0; }
-  .check-label { color: var(--ink-muted); }
-  .check-value { font-family: 'IBM Plex Mono', monospace; font-weight: 500; text-align: right; }
-  .pill { display: inline-flex; align-items: center; gap: 0.4em; font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 600; padding: 0.2em 0.6em; border-radius: 999px; }
-  .pill.ok { background: var(--ok-bg); color: var(--ok); }
-  .pill.fail { background: var(--fail-bg); color: var(--fail); }
-  .pill.pending { background: var(--pending-bg); color: var(--pending); }
-  button { font-family: 'IBM Plex Mono', monospace; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.01em; background: var(--accent); color: var(--accent-ink); border: none; border-radius: 8px; padding: 0.85rem 1.4rem; cursor: pointer; width: 100%; }
-  button:hover { filter: brightness(1.08); }
-  button:disabled { cursor: progress; opacity: 0.75; }
-  .log { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1rem; margin-top: 1rem; max-height: 220px; overflow-y: auto; color: var(--ink-muted); }
-  .log:empty { display: none; }
-  .log .line { white-space: pre-wrap; word-break: break-word; }
-  .log .line.ok-line { color: var(--ok); }
-  .log .line.fail-line { color: var(--fail); }
-  .verdict { display: none; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px dashed var(--border); }
-  .verdict.show { display: block; }
-  .verdict-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
-  .verdict-head h2 { font-family: 'IBM Plex Mono', monospace; font-size: 1.05rem; margin: 0; }
-  .verdict p { margin: 0.4rem 0 0; font-size: 0.92rem; line-height: 1.6; color: var(--ink-muted); }
-  .verdict ul { margin: 0.6rem 0 0; padding-left: 1.2rem; font-size: 0.88rem; line-height: 1.7; color: var(--ink-muted); }
-  h3 { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 0.9rem; }
-  footer { margin-top: 2rem; font-size: 0.82rem; color: var(--ink-muted); line-height: 1.7; }
-</style>
-</head>
-<body>
-<main>
-  <p class="eyebrow">Spike &middot; Dia 1 &middot; Arquitetura secao 5.1</p>
-  <h1>A pagina consegue falar com o bridge?</h1>
-  <p class="subtitle">
-    Testa se esta pagina, servida por HTTPS real, consegue chamar
-    <code>http://127.0.0.1:9100/health</code> -- o binario Go que roda na maquina
-    do caixa. Decide se o bridge local funciona sem configuracao extra, ou se
-    entra um dos fallbacks (certificado, self-signed, push por conexao de saida).
-  </p>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'IBM Plex Sans', system-ui, sans-serif;
+        margin: 0;
+        padding: 2.5rem 1.5rem 4rem;
+      }
+      main {
+        max-width: 700px;
+        margin: 0 auto;
+      }
+      .eyebrow {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 0.6rem;
+      }
+      h1 {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: clamp(1.6rem, 4vw, 2.1rem);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0 0 0.6rem;
+        text-wrap: balance;
+      }
+      .subtitle {
+        color: var(--ink-muted);
+        font-size: 1rem;
+        line-height: 1.6;
+        max-width: 60ch;
+        margin: 0 0 2rem;
+      }
+      code {
+        font-family: 'IBM Plex Mono', monospace;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1em 0.4em;
+        font-size: 0.9em;
+      }
+      section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 1.4rem 1.5rem;
+        margin-bottom: 1.25rem;
+      }
+      .check-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.92rem;
+      }
+      .check-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+      .check-row:first-child {
+        padding-top: 0;
+      }
+      .check-label {
+        color: var(--ink-muted);
+      }
+      .check-value {
+        font-family: 'IBM Plex Mono', monospace;
+        font-weight: 500;
+        text-align: right;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4em;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0.2em 0.6em;
+        border-radius: 999px;
+      }
+      .pill.ok {
+        background: var(--ok-bg);
+        color: var(--ok);
+      }
+      .pill.fail {
+        background: var(--fail-bg);
+        color: var(--fail);
+      }
+      .pill.pending {
+        background: var(--pending-bg);
+        color: var(--pending);
+      }
+      button {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        background: var(--accent);
+        color: var(--accent-ink);
+        border: none;
+        border-radius: 8px;
+        padding: 0.85rem 1.4rem;
+        cursor: pointer;
+        width: 100%;
+      }
+      button:hover {
+        filter: brightness(1.08);
+      }
+      button:disabled {
+        cursor: progress;
+        opacity: 0.75;
+      }
+      .log {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.82rem;
+        line-height: 1.7;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
+        margin-top: 1rem;
+        max-height: 220px;
+        overflow-y: auto;
+        color: var(--ink-muted);
+      }
+      .log:empty {
+        display: none;
+      }
+      .log .line {
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .log .line.ok-line {
+        color: var(--ok);
+      }
+      .log .line.fail-line {
+        color: var(--fail);
+      }
+      .verdict {
+        display: none;
+        margin-top: 1.1rem;
+        padding-top: 1.1rem;
+        border-top: 1px dashed var(--border);
+      }
+      .verdict.show {
+        display: block;
+      }
+      .verdict-head {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.5rem;
+      }
+      .verdict-head h2 {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 1.05rem;
+        margin: 0;
+      }
+      .verdict p {
+        margin: 0.4rem 0 0;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        color: var(--ink-muted);
+      }
+      .verdict ul {
+        margin: 0.6rem 0 0;
+        padding-left: 1.2rem;
+        font-size: 0.88rem;
+        line-height: 1.7;
+        color: var(--ink-muted);
+      }
+      h3 {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        margin: 0 0 0.9rem;
+      }
+      footer {
+        margin-top: 2rem;
+        font-size: 0.82rem;
+        color: var(--ink-muted);
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Spike &middot; Dia 1 &middot; Arquitetura secao 5.1</p>
+      <h1>A pagina consegue falar com o bridge?</h1>
+      <p class="subtitle">
+        Testa se esta pagina, servida por HTTPS real, consegue chamar
+        <code>http://127.0.0.1:9100/health</code> -- o binario Go que roda na maquina do caixa.
+        Decide se o bridge local funciona sem configuracao extra, ou se entra um dos fallbacks
+        (certificado, self-signed, push por conexao de saida).
+      </p>
 
-  <section>
-    <h3>Pre-condicoes</h3>
-    <div class="checks">
-      <div class="check-row">
-        <span class="check-label">Esta pagina</span>
-        <span class="check-value" id="chk-origin">verificando...</span>
-      </div>
-      <div class="check-row">
-        <span class="check-label">Alvo do teste</span>
-        <span class="check-value">http://127.0.0.1:9100/health</span>
-      </div>
-      <div class="check-row">
-        <span class="check-label">Bridge rodando nesta maquina?</span>
-        <span class="check-value"><span class="pill pending">confirme antes de testar</span></span>
-      </div>
-    </div>
-  </section>
+      <section>
+        <h3>Pre-condicoes</h3>
+        <div class="checks">
+          <div class="check-row">
+            <span class="check-label">Esta pagina</span>
+            <span class="check-value" id="chk-origin">verificando...</span>
+          </div>
+          <div class="check-row">
+            <span class="check-label">Alvo do teste</span>
+            <span class="check-value">http://127.0.0.1:9100/health</span>
+          </div>
+          <div class="check-row">
+            <span class="check-label">Bridge rodando nesta maquina?</span>
+            <span class="check-value"
+              ><span class="pill pending">confirme antes de testar</span></span
+            >
+          </div>
+        </div>
+      </section>
 
-  <section>
-    <h3>Teste</h3>
-    <button id="btn-testar" type="button">Testar bridge agora</button>
-    <div class="log" id="log" aria-live="polite"></div>
+      <section>
+        <h3>Teste</h3>
+        <button id="btn-testar" type="button">Testar bridge agora</button>
+        <div class="log" id="log" aria-live="polite"></div>
 
-    <div class="verdict" id="verdict">
-      <div class="verdict-head">
-        <span class="pill" id="verdict-pill">-</span>
-        <h2 id="verdict-title">-</h2>
-      </div>
-      <p id="verdict-body"></p>
-      <ul id="verdict-checklist" hidden></ul>
-    </div>
-  </section>
+        <div class="verdict" id="verdict">
+          <div class="verdict-head">
+            <span class="pill" id="verdict-pill">-</span>
+            <h2 id="verdict-title">-</h2>
+          </div>
+          <p id="verdict-body"></p>
+          <ul id="verdict-checklist" hidden></ul>
+        </div>
+      </section>
 
-  <footer>
-    Este binario e um <strong>stub de spike</strong>: so responde <code>/health</code>,
-    nao imprime nada e nao deve ir para producao. Se o resultado for FALHA,
-    abra o DevTools (F12) &rarr; aba <em>Console</em> antes de testar de novo --
-    o Chrome imprime ali a frase exata da politica que bloqueou (mixed content,
-    CORS ou Private Network Access), o que este teste sozinho nao consegue ler
-    por design de seguranca do navegador.
-  </footer>
-</main>
+      <footer>
+        Este binario e um <strong>stub de spike</strong>: so responde <code>/health</code>, nao
+        imprime nada e nao deve ir para producao. Se o resultado for FALHA, abra o DevTools (F12)
+        &rarr; aba <em>Console</em> antes de testar de novo -- o Chrome imprime ali a frase exata da
+        politica que bloqueou (mixed content, CORS ou Private Network Access), o que este teste
+        sozinho nao consegue ler por design de seguranca do navegador.
+      </footer>
+    </main>
 
-<script>
-(function () {
-  var TARGET = 'http://127.0.0.1:9100/health';
-  var logEl = document.getElementById('log');
-  var btn = document.getElementById('btn-testar');
-  var verdict = document.getElementById('verdict');
-  var verdictPill = document.getElementById('verdict-pill');
-  var verdictTitle = document.getElementById('verdict-title');
-  var verdictBody = document.getElementById('verdict-body');
-  var verdictChecklist = document.getElementById('verdict-checklist');
+    <script>
+      ;(function () {
+        var TARGET = 'http://127.0.0.1:9100/health'
+        var logEl = document.getElementById('log')
+        var btn = document.getElementById('btn-testar')
+        var verdict = document.getElementById('verdict')
+        var verdictPill = document.getElementById('verdict-pill')
+        var verdictTitle = document.getElementById('verdict-title')
+        var verdictBody = document.getElementById('verdict-body')
+        var verdictChecklist = document.getElementById('verdict-checklist')
 
-  var isHttps = location.protocol === 'https:';
-  var chkOrigin = document.getElementById('chk-origin');
-  chkOrigin.innerHTML = isHttps
-    ? '<span class="pill ok">HTTPS ' + location.hostname + '</span>'
-    : '<span class="pill fail">' + location.protocol + ' (nao e HTTPS real)</span>';
+        var isHttps = location.protocol === 'https:'
+        var chkOrigin = document.getElementById('chk-origin')
+        chkOrigin.innerHTML = isHttps
+          ? '<span class="pill ok">HTTPS ' + location.hostname + '</span>'
+          : '<span class="pill fail">' + location.protocol + ' (nao e HTTPS real)</span>'
 
-  function log(msg, cls) {
-    var line = document.createElement('div');
-    line.className = 'line' + (cls ? ' ' + cls : '');
-    line.textContent = msg;
-    logEl.appendChild(line);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
+        function log(msg, cls) {
+          var line = document.createElement('div')
+          line.className = 'line' + (cls ? ' ' + cls : '')
+          line.textContent = msg
+          logEl.appendChild(line)
+          logEl.scrollTop = logEl.scrollHeight
+        }
 
-  function mostrarVeredito(passou, titulo, corpo, checklist) {
-    verdict.classList.add('show');
-    verdictPill.className = 'pill ' + (passou ? 'ok' : 'fail');
-    verdictPill.textContent = passou ? 'PASSA' : 'FALHA';
-    verdictTitle.textContent = titulo;
-    verdictBody.textContent = corpo;
-    if (checklist && checklist.length) {
-      verdictChecklist.hidden = false;
-      verdictChecklist.innerHTML = checklist.map(function (item) { return '<li>' + item + '</li>'; }).join('');
-    } else {
-      verdictChecklist.hidden = true;
-      verdictChecklist.innerHTML = '';
-    }
-  }
+        function mostrarVeredito(passou, titulo, corpo, checklist) {
+          verdict.classList.add('show')
+          verdictPill.className = 'pill ' + (passou ? 'ok' : 'fail')
+          verdictPill.textContent = passou ? 'PASSA' : 'FALHA'
+          verdictTitle.textContent = titulo
+          verdictBody.textContent = corpo
+          if (checklist && checklist.length) {
+            verdictChecklist.hidden = false
+            verdictChecklist.innerHTML = checklist
+              .map(function (item) {
+                return '<li>' + item + '</li>'
+              })
+              .join('')
+          } else {
+            verdictChecklist.hidden = true
+            verdictChecklist.innerHTML = ''
+          }
+        }
 
-  btn.addEventListener('click', function () {
-    logEl.innerHTML = '';
-    verdict.classList.remove('show');
-    btn.disabled = true;
-    btn.textContent = 'Testando...';
+        btn.addEventListener('click', function () {
+          logEl.innerHTML = ''
+          verdict.classList.remove('show')
+          btn.disabled = true
+          btn.textContent = 'Testando...'
 
-    var inicio = performance.now();
-    log('GET ' + TARGET);
-    log('origem da pagina: ' + location.origin + ' (' + location.protocol.replace(':', '') + ')');
+          var inicio = performance.now()
+          log('GET ' + TARGET)
+          log(
+            'origem da pagina: ' +
+              location.origin +
+              ' (' +
+              location.protocol.replace(':', '') +
+              ')',
+          )
 
-    fetch(TARGET, { method: 'GET', mode: 'cors', cache: 'no-store' })
-      .then(function (res) {
-        var ms = Math.round(performance.now() - inicio);
-        log('resposta recebida em ' + ms + 'ms -- HTTP ' + res.status, 'ok-line');
-        return res.json().then(function (corpo) {
-          log('corpo: ' + JSON.stringify(corpo), 'ok-line');
-          return { res: res, corpo: corpo };
-        });
-      })
-      .then(function () {
-        mostrarVeredito(
-          true,
-          'PWA HTTPS alcanca o bridge localhost',
-          'O navegador permitiu a chamada de rede privada sem configuracao extra. Fase 1 pode seguir com o bridge direto, sem entrar nos fallbacks do 5.1.',
-          null
-        );
-      })
-      .catch(function (erro) {
-        var ms = Math.round(performance.now() - inicio);
-        log('falhou apos ' + ms + 'ms: ' + erro.name + ': ' + erro.message, 'fail-line');
+          fetch(TARGET, { method: 'GET', mode: 'cors', cache: 'no-store' })
+            .then(function (res) {
+              var ms = Math.round(performance.now() - inicio)
+              log('resposta recebida em ' + ms + 'ms -- HTTP ' + res.status, 'ok-line')
+              return res.json().then(function (corpo) {
+                log('corpo: ' + JSON.stringify(corpo), 'ok-line')
+                return { res: res, corpo: corpo }
+              })
+            })
+            .then(function () {
+              mostrarVeredito(
+                true,
+                'PWA HTTPS alcanca o bridge localhost',
+                'O navegador permitiu a chamada de rede privada sem configuracao extra. Fase 1 pode seguir com o bridge direto, sem entrar nos fallbacks do 5.1.',
+                null,
+              )
+            })
+            .catch(function (erro) {
+              var ms = Math.round(performance.now() - inicio)
+              log('falhou apos ' + ms + 'ms: ' + erro.name + ': ' + erro.message, 'fail-line')
 
-        var checklist = [
-          'DevTools (F12) -> Console: procure a frase exata do bloqueio -- ela nao chega ate este script de proposito (o navegador esconde o motivo de erros cross-origin do JavaScript).',
-          '"Mixed Content": esta pagina nao esta em HTTPS de verdade, ou o navegador trata o alvo como inseguro.',
-          '"...blocked by CORS policy" simples: o bridge respondeu, mas sem os headers Access-Control-Allow-* -- bug no stub, nao politica do Chrome.',
-          '"...private network" / "not successful" citando Private Network Access: e o caso do 5.1 -- precisa de um dos fallbacks (certificado real, self-signed, ou push por conexao de saida).',
-          'ERR_CONNECTION_REFUSED: o bridge nao esta rodando nesta maquina, ou a porta 9100 esta ocupada por outro processo.'
-        ];
+              var checklist = [
+                'DevTools (F12) -> Console: procure a frase exata do bloqueio -- ela nao chega ate este script de proposito (o navegador esconde o motivo de erros cross-origin do JavaScript).',
+                '"Mixed Content": esta pagina nao esta em HTTPS de verdade, ou o navegador trata o alvo como inseguro.',
+                '"...blocked by CORS policy" simples: o bridge respondeu, mas sem os headers Access-Control-Allow-* -- bug no stub, nao politica do Chrome.',
+                '"...private network" / "not successful" citando Private Network Access: e o caso do 5.1 -- precisa de um dos fallbacks (certificado real, self-signed, ou push por conexao de saida).',
+                'ERR_CONNECTION_REFUSED: o bridge nao esta rodando nesta maquina, ou a porta 9100 esta ocupada por outro processo.',
+              ]
 
-        mostrarVeredito(
-          false,
-          'Bloqueado antes de alcancar o bridge',
-          'O fetch falhou. O navegador nao expoe ao JavaScript qual politica bloqueou -- isso e comportamento de seguranca esperado, nao um bug deste teste.',
-          checklist
-        );
-      })
-      .finally(function () {
-        btn.disabled = false;
-        btn.textContent = 'Testar bridge agora';
-      });
-  });
-})();
-</script>
-</body>
+              mostrarVeredito(
+                false,
+                'Bloqueado antes de alcancar o bridge',
+                'O fetch falhou. O navegador nao expoe ao JavaScript qual politica bloqueou -- isso e comportamento de seguranca esperado, nao um bug deste teste.',
+                checklist,
+              )
+            })
+            .finally(function () {
+              btn.disabled = false
+              btn.textContent = 'Testar bridge agora'
+            })
+        })
+      })()
+    </script>
+  </body>
 </html>

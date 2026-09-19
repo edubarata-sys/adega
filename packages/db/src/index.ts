@@ -1,2 +1,6 @@
 export * from './schema'
+export * as schema from './schema'
 export * from './client'
+export * from './senha'
+export * from './repositorios/estoque'
+export { seedDados, SEED_IDS, SEED_CREDENCIAIS_DEV } from './seed'

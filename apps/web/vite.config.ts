@@ -6,7 +6,11 @@ export default defineConfig({
   server: {
     proxy: {
       // Evita CORS em dev: o front chama /api/* e o Vite repassa para o Fastify.
-      '/api': { target: 'http://localhost:3000', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
     },
   },
 })
