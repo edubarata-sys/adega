@@ -53,7 +53,11 @@ export function App() {
   }, [])
 
   if (estado.fase === 'carregando') {
-    return <p style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>Carregando...</p>
+    return (
+      <div className="app" style={{ padding: '2rem' }}>
+        <p>Carregando...</p>
+      </div>
+    )
   }
 
   if (estado.fase === 'login') {

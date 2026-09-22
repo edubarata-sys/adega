@@ -18,6 +18,7 @@ import {
   type ItemCarrinho,
   type PagamentoInformado,
 } from './carrinho'
+import { TopoApp } from './TopoApp'
 
 interface Props {
   readonly operadorNome: string
@@ -177,161 +178,190 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   if (resultado) {
     const dinheiro = resultado.pagamentos.find((p) => p.forma === 'dinheiro')
     return (
-      <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 480 }}>
-        <h1 style={{ color: '#16a34a' }}>Venda registrada</h1>
-        <p>Total: {formatarBRL(centavos(resultado.venda.total))}</p>
-        {dinheiro && dinheiro.troco > 0 && (
-          <p>
-            Troco: <strong>{formatarBRL(centavos(dinheiro.troco))}</strong>
-          </p>
-        )}
-
-        {recibo && (
-          <>
-            <pre
-              style={{
-                fontFamily: 'monospace',
-                background: '#f3f4f6',
-                padding: '1rem',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {recibo.linhas.join('\n')}
-            </pre>
-            <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-              Impressao real (ESC/POS) ainda depende de uma impressora fisica conectada -- o botao
-              abaixo e so um fallback AUXILIAR via janela de impressao do navegador.
+      <div className="app">
+        <TopoApp titulo="Venda registrada">
+          <span>{operadorNome}</span>
+        </TopoApp>
+        <main className="app-shell" style={{ maxWidth: 480 }}>
+          <div className="app-card">
+            <div className="app-resultado-icone ok">✓</div>
+            <h2 style={{ margin: '0 0 4px' }}>Venda registrada</h2>
+            <p className="app-total-label" style={{ textAlign: 'left', marginTop: 12 }}>
+              Total
             </p>
-            <button type="button" onClick={() => window.print()}>
-              Imprimir (navegador -- auxiliar)
-            </button>
-          </>
-        )}
+            <p className="app-total" style={{ textAlign: 'left' }}>
+              {formatarBRL(centavos(resultado.venda.total))}
+            </p>
+            {dinheiro && dinheiro.troco > 0 && (
+              <p style={{ fontSize: '1.1rem' }}>
+                Troco:{' '}
+                <strong style={{ color: 'var(--gold)' }}>
+                  {formatarBRL(centavos(dinheiro.troco))}
+                </strong>
+              </p>
+            )}
 
-        <div style={{ marginTop: 12 }}>
-          <button type="button" onClick={novaVenda}>
-            Nova venda
-          </button>
-        </div>
-      </main>
+            {recibo && (
+              <>
+                <pre
+                  style={{
+                    fontFamily: 'ui-monospace, monospace',
+                    background: 'var(--bg-card-alt)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '1rem',
+                    whiteSpace: 'pre-wrap',
+                    color: '#dcd4bf',
+                    fontSize: '.85rem',
+                  }}
+                >
+                  {recibo.linhas.join('\n')}
+                </pre>
+                <p className="app-aviso">
+                  Impressao real (ESC/POS) ainda depende de uma impressora fisica conectada -- o
+                  botao abaixo e so um fallback AUXILIAR via janela de impressao do navegador.
+                </p>
+                <button type="button" onClick={() => window.print()} className="app-btn-outline">
+                  Imprimir (navegador -- auxiliar)
+                </button>
+              </>
+            )}
+
+            <div style={{ marginTop: 16 }}>
+              <button type="button" onClick={novaVenda} className="app-btn app-btn-grande">
+                Nova venda
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
     )
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 640 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>PDV</h1>
-        <span>
-          Operador: {operadorNome}{' '}
-          <button type="button" onClick={aoQuererGerenciarProdutos}>
-            Produtos
-          </button>{' '}
-          <button type="button" onClick={aoQuererFecharCaixa}>
-            Fechar caixa
-          </button>
-        </span>
-      </header>
+    <div className="app">
+      <TopoApp titulo="Ponto de venda">
+        <span>{operadorNome}</span>
+        <button type="button" className="app-btn-outline" onClick={aoQuererGerenciarProdutos}>
+          Produtos
+        </button>
+        <button type="button" className="app-btn-outline" onClick={aoQuererFecharCaixa}>
+          Fechar caixa
+        </button>
+      </TopoApp>
 
-      <label>
-        Codigo de barras (EAN)
-        <input
-          ref={eanRef}
-          autoFocus
-          type="text"
-          value={eanTexto}
-          disabled={buscando}
-          onChange={(e) => setEanTexto(e.target.value)}
-          onKeyDown={(e) => void buscarPorEan(e)}
-          placeholder="Passe a pistola ou digite e pressione Enter"
-          style={{ display: 'block', width: '100%', fontSize: '1.1rem' }}
-        />
-      </label>
-      {erroBusca && <p style={{ color: '#dc2626' }}>{erroBusca}</p>}
+      <main className="app-shell" style={{ maxWidth: 720 }}>
+        <div className="app-card">
+          <span className="app-label">Codigo de barras (EAN)</span>
+          <input
+            ref={eanRef}
+            autoFocus
+            type="text"
+            value={eanTexto}
+            disabled={buscando}
+            onChange={(e) => setEanTexto(e.target.value)}
+            onKeyDown={(e) => void buscarPorEan(e)}
+            placeholder="Passe a pistola ou digite e pressione Enter"
+            className="app-input app-input-lg"
+          />
+          {erroBusca && <p className="app-msg-erro">{erroBusca}</p>}
+        </div>
 
-      <table style={{ width: '100%', marginTop: 16, borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>Produto</th>
-            <th>Qtd</th>
-            <th>Preco</th>
-            <th>Total</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {carrinho.map((item) => (
-            <tr key={item.produtoId}>
-              <td>{item.descricao}</td>
-              <td>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={item.quantidade}
-                  onChange={(e) =>
-                    setCarrinho((atual) =>
-                      atualizarQuantidade(
-                        atual,
-                        item.produtoId,
-                        Math.max(1, Number(e.target.value) || 1),
-                      ),
-                    )
-                  }
-                  style={{ width: 56 }}
-                />
-              </td>
-              <td>{formatarBRL(item.precoUnitario)}</td>
-              <td>{formatarBRL(totalItem(item))}</td>
-              <td>
-                <button
-                  type="button"
-                  onClick={() => setCarrinho((atual) => removerDoCarrinho(atual, item.produtoId))}
-                >
-                  remover
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <p style={{ fontSize: '1.5rem', textAlign: 'right' }}>
-        Total: <strong>{formatarBRL(total)}</strong>
-      </p>
-
-      <section style={{ marginTop: 16 }}>
-        <h2>Pagamento</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}>
-          <label>
-            Forma
-            <select
-              value={formaPagamento}
-              onChange={(e) => {
-                setFormaPagamento(e.target.value as FormaPagamento)
-                setTerminalApelido(null)
-              }}
-              style={{ display: 'block' }}
-            >
-              {FORMAS_PAGAMENTO.map((forma) => (
-                <option key={forma} value={forma}>
-                  {forma}
-                </option>
+        <div className="app-card">
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Qtd</th>
+                <th>Preco</th>
+                <th>Total</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {carrinho.map((item) => (
+                <tr key={item.produtoId}>
+                  <td>{item.descricao}</td>
+                  <td>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={item.quantidade}
+                      onChange={(e) =>
+                        setCarrinho((atual) =>
+                          atualizarQuantidade(
+                            atual,
+                            item.produtoId,
+                            Math.max(1, Number(e.target.value) || 1),
+                          ),
+                        )
+                      }
+                      className="app-input"
+                      style={{ width: 64, padding: '6px 8px', fontSize: '.95rem' }}
+                    />
+                  </td>
+                  <td>{formatarBRL(item.precoUnitario)}</td>
+                  <td>{formatarBRL(totalItem(item))}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="app-btn-ghost"
+                      onClick={() =>
+                        setCarrinho((atual) => removerDoCarrinho(atual, item.produtoId))
+                      }
+                    >
+                      remover
+                    </button>
+                  </td>
+                </tr>
               ))}
-            </select>
-          </label>
+              {carrinho.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ color: 'var(--text-muted)', paddingTop: 12 }}>
+                    Nenhum item no carrinho ainda. Passe a pistola no campo acima.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: 12 }}>
+            <p className="app-total-label">Total</p>
+            <p className="app-total">{formatarBRL(total)}</p>
+          </div>
+        </div>
+
+        <div className="app-card">
+          <h2>Pagamento</h2>
+          <div className="app-pill-group" style={{ marginBottom: 12 }}>
+            {FORMAS_PAGAMENTO.map((forma) => (
+              <button
+                key={forma}
+                type="button"
+                className="app-pill-btn"
+                aria-pressed={formaPagamento === forma}
+                onClick={() => {
+                  setFormaPagamento(forma)
+                  setTerminalApelido(null)
+                }}
+              >
+                {forma}
+              </button>
+            ))}
+          </div>
+
           {ehPagamentoDeCartao && (
-            <div>
-              Maquininha
-              <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ marginBottom: 12 }}>
+              <span className="app-label">Maquininha</span>
+              <div className="app-pill-group">
                 {['Maquininha 1', 'Maquininha 2'].map((apelido) => (
                   <button
                     key={apelido}
                     type="button"
+                    className="app-pill-btn"
+                    aria-pressed={terminalApelido === apelido}
                     onClick={() => setTerminalApelido(apelido)}
-                    style={{
-                      fontWeight: terminalApelido === apelido ? 'bold' : 'normal',
-                      outline: terminalApelido === apelido ? '2px solid #16a34a' : undefined,
-                    }}
                   >
                     {apelido}
                   </button>
@@ -339,48 +369,74 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
               </div>
             </div>
           )}
-          <label>
-            Valor (R$)
-            <input
-              type="text"
-              inputMode="decimal"
-              value={valorPagamentoTexto}
-              onChange={(e) => setValorPagamentoTexto(e.target.value)}
-              style={{ display: 'block' }}
-            />
-          </label>
-          <button type="button" onClick={adicionarPagamento}>
-            Adicionar pagamento
-          </button>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap' }}>
+            <label style={{ flex: 1, minWidth: 160 }}>
+              <span className="app-label">Valor (R$)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={valorPagamentoTexto}
+                onChange={(e) => setValorPagamentoTexto(e.target.value)}
+                className="app-input"
+              />
+            </label>
+            <button type="button" onClick={adicionarPagamento} className="app-btn">
+              Adicionar pagamento
+            </button>
+          </div>
+          {erroPagamento && <p className="app-msg-erro">{erroPagamento}</p>}
+
+          {pagamentos.length > 0 && (
+            <ul style={{ listStyle: 'none', padding: 0, marginTop: 12, display: 'grid', gap: 6 }}>
+              {pagamentos.map((p, indice) => (
+                <li
+                  key={indice}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: 'var(--bg-card-alt)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                  }}
+                >
+                  <span>
+                    {p.forma}
+                    {p.terminalApelido ? ` (${p.terminalApelido})` : ''}: {formatarBRL(p.valor)}
+                  </span>
+                  <button
+                    type="button"
+                    className="app-btn-ghost"
+                    onClick={() => removerPagamento(indice)}
+                  >
+                    remover
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p style={{ marginTop: 12 }}>
+            Pago: <strong>{formatarBRL(pago)}</strong>{' '}
+            {pago > total && (
+              <span style={{ color: 'var(--green)' }}>
+                (troco estimado: {formatarBRL(centavos(pago - total))})
+              </span>
+            )}
+          </p>
         </div>
-        {erroPagamento && <p style={{ color: '#dc2626' }}>{erroPagamento}</p>}
 
-        <ul>
-          {pagamentos.map((p, indice) => (
-            <li key={indice}>
-              {p.forma}
-              {p.terminalApelido ? ` (${p.terminalApelido})` : ''}: {formatarBRL(p.valor)}{' '}
-              <button type="button" onClick={() => removerPagamento(indice)}>
-                remover
-              </button>
-            </li>
-          ))}
-        </ul>
-        <p>
-          Pago: {formatarBRL(pago)}{' '}
-          {pago > total && <span>(troco estimado: {formatarBRL(centavos(pago - total))})</span>}
-        </p>
-      </section>
-
-      {erroVenda && <p style={{ color: '#dc2626' }}>{erroVenda}</p>}
-      <button
-        type="button"
-        disabled={carrinho.length === 0 || pagamentos.length === 0 || enviandoVenda}
-        onClick={() => void confirmarVenda()}
-        style={{ fontSize: '1.1rem', padding: '0.5rem 1rem' }}
-      >
-        {enviandoVenda ? 'Registrando...' : 'Confirmar venda'}
-      </button>
-    </main>
+        {erroVenda && <p className="app-msg-erro">{erroVenda}</p>}
+        <button
+          type="button"
+          disabled={carrinho.length === 0 || pagamentos.length === 0 || enviandoVenda}
+          onClick={() => void confirmarVenda()}
+          className="app-btn app-btn-grande"
+        >
+          {enviandoVenda ? 'Registrando...' : 'Confirmar venda'}
+        </button>
+      </main>
+    </div>
   )
 }

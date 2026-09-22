@@ -1,6 +1,7 @@
 import { formatarBRL, centavos as paraCentavos } from '@adega/core'
 import { useState } from 'react'
 import { ErroRequisicao, fecharCaixa } from './api'
+import { TopoApp } from './TopoApp'
 
 interface Props {
   readonly aoFechar: () => void
@@ -47,49 +48,60 @@ export function FecharCaixaTela({ aoFechar }: Props) {
   if (resultado) {
     const diferencaLabel =
       resultado.diferenca === 0 ? 'sem diferenca' : resultado.diferenca > 0 ? 'sobra' : 'falta'
+    const corDiferenca = resultado.diferenca === 0 ? 'var(--green)' : 'var(--red)'
     return (
-      <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 420 }}>
-        <h1>Caixa fechado</h1>
-        <p>Esperado: {formatarBRL(paraCentavos(resultado.esperado))}</p>
-        <p>Contado: {formatarBRL(paraCentavos(resultado.contado))}</p>
-        <p>
-          Diferenca:{' '}
-          <strong style={{ color: resultado.diferenca === 0 ? '#16a34a' : '#dc2626' }}>
-            {formatarBRL(paraCentavos(Math.abs(resultado.diferenca)))} ({diferencaLabel})
-          </strong>
-        </p>
-        <button type="button" onClick={aoFechar}>
-          Abrir novo caixa
-        </button>
-      </main>
+      <div className="app">
+        <TopoApp titulo="Fechar caixa" />
+        <main className="app-shell" style={{ maxWidth: 420 }}>
+          <div className="app-card">
+            <div className="app-resultado-icone ok">✓</div>
+            <h2 style={{ margin: '0 0 14px' }}>Caixa fechado</h2>
+            <p>Esperado: {formatarBRL(paraCentavos(resultado.esperado))}</p>
+            <p>Contado: {formatarBRL(paraCentavos(resultado.contado))}</p>
+            <p>
+              Diferenca:{' '}
+              <strong style={{ color: corDiferenca }}>
+                {formatarBRL(paraCentavos(Math.abs(resultado.diferenca)))} ({diferencaLabel})
+              </strong>
+            </p>
+            <button type="button" onClick={aoFechar} className="app-btn app-btn-grande">
+              Abrir novo caixa
+            </button>
+          </div>
+        </main>
+      </div>
     )
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 420 }}>
-      <h1>Fechar caixa</h1>
-      <p>
-        Conte o dinheiro da gaveta e digite o valor ANTES de confirmar -- o sistema so mostra o
-        valor esperado depois que voce confirmar o que contou.
-      </p>
-      <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 8 }}>
-        <label>
-          Valor contado (R$)
-          <input
-            type="text"
-            inputMode="decimal"
-            autoFocus
-            required
-            value={valorContadoTexto}
-            onChange={(e) => setValorContadoTexto(e.target.value)}
-            style={{ display: 'block', width: '100%', fontSize: '1.1rem' }}
-          />
-        </label>
-        <button type="submit" disabled={enviando}>
-          {enviando ? 'Fechando...' : 'Confirmar e fechar caixa'}
-        </button>
-        {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
-      </form>
-    </main>
+    <div className="app">
+      <TopoApp titulo="Fechar caixa" />
+      <main className="app-shell" style={{ maxWidth: 420 }}>
+        <div className="app-card">
+          <p className="app-aviso" style={{ marginTop: 0 }}>
+            Conte o dinheiro da gaveta e digite o valor ANTES de confirmar -- o sistema so mostra o
+            valor esperado depois que voce confirmar o que contou.
+          </p>
+          <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 14 }}>
+            <label>
+              <span className="app-label">Valor contado (R$)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                required
+                value={valorContadoTexto}
+                onChange={(e) => setValorContadoTexto(e.target.value)}
+                className="app-input app-input-lg"
+              />
+            </label>
+            <button type="submit" disabled={enviando} className="app-btn app-btn-grande">
+              {enviando ? 'Fechando...' : 'Confirmar e fechar caixa'}
+            </button>
+            {erro && <p className="app-msg-erro">{erro}</p>}
+          </form>
+        </div>
+      </main>
+    </div>
   )
 }

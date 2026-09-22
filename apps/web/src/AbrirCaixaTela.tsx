@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { abrirCaixa, ErroRequisicao, type SessaoCaixaApi, type UsuarioSessao } from './api'
+import { TopoApp } from './TopoApp'
 
 interface Props {
   readonly usuario: UsuarioSessao
@@ -36,27 +37,33 @@ export function AbrirCaixaTela({ usuario, aoAbrir }: Props) {
   }
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 420 }}>
-      <h1>Abrir caixa</h1>
-      <p>
-        Operador: <strong>{usuario.nome}</strong>
-      </p>
-      <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 8 }}>
-        <label>
-          Fundo de troco (R$)
-          <input
-            type="text"
-            inputMode="decimal"
-            value={fundoTrocoTexto}
-            onChange={(e) => setFundoTrocoTexto(e.target.value)}
-            style={{ display: 'block', width: '100%' }}
-          />
-        </label>
-        <button type="submit" disabled={enviando}>
-          {enviando ? 'Abrindo...' : 'Abrir caixa'}
-        </button>
-        {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
-      </form>
-    </main>
+    <div className="app">
+      <TopoApp titulo="Abrir caixa">
+        <span>{usuario.nome}</span>
+      </TopoApp>
+      <main className="app-shell" style={{ maxWidth: 420 }}>
+        <div className="app-card">
+          <p style={{ marginTop: 0, color: 'var(--text-muted)' }}>
+            Operador: <strong style={{ color: 'var(--text)' }}>{usuario.nome}</strong>
+          </p>
+          <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 14 }}>
+            <label>
+              <span className="app-label">Fundo de troco (R$)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={fundoTrocoTexto}
+                onChange={(e) => setFundoTrocoTexto(e.target.value)}
+                className="app-input app-input-lg"
+              />
+            </label>
+            <button type="submit" disabled={enviando} className="app-btn app-btn-grande">
+              {enviando ? 'Abrindo...' : 'Abrir caixa'}
+            </button>
+            {erro && <p className="app-msg-erro">{erro}</p>}
+          </form>
+        </div>
+      </main>
+    </div>
   )
 }

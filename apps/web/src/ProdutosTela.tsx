@@ -12,6 +12,7 @@ import {
   type DadosProdutoForm,
   type ProdutoCadastroApi,
 } from './api'
+import { TopoApp } from './TopoApp'
 
 interface Props {
   readonly aoVoltar: () => void
@@ -58,10 +59,7 @@ const FORMULARIO_VAZIO: FormularioProduto = {
 /**
  * PASSO 10: tela de cadastro/estoque de produtos -- o gap que existia desde
  * a Fase 1 (so tinha baixa automatica na venda, nenhuma forma de cadastrar
- * ou editar um produto pela interface). Layout deliberadamente simples por
- * enquanto (combinado com o dono: ajustar visual depois, na segunda) --
- * o que importa agora e a operacao funcionar: buscar, criar, editar,
- * ativar/desativar, e lancar entrada/perda/ajuste de estoque.
+ * ou editar um produto pela interface).
  */
 export function ProdutosTela({ aoVoltar }: Props) {
   const [termo, setTermo] = useState('')
@@ -244,295 +242,324 @@ export function ProdutosTela({ aoVoltar }: Props) {
   const produtoEmEdicao = editandoId ? produtos.find((p) => p.id === editandoId) : null
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 900 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Cadastro de produtos</h1>
-        <button type="button" onClick={aoVoltar}>
+    <div className="app">
+      <TopoApp titulo="Cadastro de produtos">
+        <button type="button" className="app-btn-outline" onClick={aoVoltar}>
           Voltar ao PDV
         </button>
-      </header>
-      <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-        Layout provisorio -- vamos ajustar o visual depois. O que importa agora e cadastrar, editar
-        e mexer no estoque funcionando.
-      </p>
+      </TopoApp>
 
-      <section style={{ display: 'flex', gap: 32, marginTop: 16, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 320 }}>
-          <h2>Produtos</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Buscar por descricao"
-              value={termo}
-              onChange={(e) => setTermo(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void carregarProdutos(termo)
-              }}
-              style={{ flex: 1 }}
-            />
-            <button type="button" onClick={() => void carregarProdutos(termo)}>
-              Buscar
-            </button>
-            <button type="button" onClick={iniciarNovo}>
-              + Novo produto
-            </button>
-          </div>
-          {carregando && <p>Carregando...</p>}
-          {erroLista && <p style={{ color: '#dc2626' }}>{erroLista}</p>}
+      <main className="app-shell" style={{ maxWidth: 1080 }}>
+        <div className="app-grid-2 app-grid-2col" style={{ alignItems: 'start' }}>
+          <div className="app-card">
+            <h2>Produtos</h2>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Buscar por descricao"
+                value={termo}
+                onChange={(e) => setTermo(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void carregarProdutos(termo)
+                }}
+                className="app-input"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="app-btn-outline"
+                onClick={() => void carregarProdutos(termo)}
+              >
+                Buscar
+              </button>
+              <button type="button" className="app-btn" onClick={iniciarNovo}>
+                + Novo
+              </button>
+            </div>
+            {carregando && <p style={{ color: 'var(--text-muted)' }}>Carregando...</p>}
+            {erroLista && <p className="app-msg-erro">{erroLista}</p>}
 
-          <table
-            style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: '0.9rem' }}
-          >
-            <thead>
-              <tr style={{ textAlign: 'left' }}>
-                <th>Descricao</th>
-                <th>EAN</th>
-                <th>Preco</th>
-                <th>Estoque</th>
-                <th>Ativo</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {produtos.map((p) => (
-                <tr
-                  key={p.id}
-                  style={{
-                    borderTop: '1px solid #e5e7eb',
-                    opacity: p.ativo ? 1 : 0.5,
-                    background: p.id === editandoId ? '#f0fdf4' : undefined,
-                  }}
-                >
-                  <td>{p.descricao}</td>
-                  <td>{p.ean ?? '-'}</td>
-                  <td>{formatarBRL(centavos(p.precoVenda))}</td>
-                  <td>{Number(p.estoqueAtual ?? 0)}</td>
-                  <td>{p.ativo ? 'sim' : 'nao'}</td>
-                  <td>
-                    <button type="button" onClick={() => selecionarParaEditar(p)}>
-                      Editar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {produtos.length === 0 && !carregando && (
+            <table className="app-table">
+              <thead>
                 <tr>
-                  <td colSpan={6} style={{ color: '#6b7280', paddingTop: 8 }}>
-                    Nenhum produto encontrado.
-                  </td>
+                  <th>Descricao</th>
+                  <th>EAN</th>
+                  <th>Preco</th>
+                  <th>Estoque</th>
+                  <th>Ativo</th>
+                  <th />
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div style={{ flex: 1, minWidth: 320 }}>
-          <h2>{editandoId ? 'Editar produto' : 'Novo produto'}</h2>
-
-          <label>
-            Descricao *
-            <input
-              type="text"
-              value={form.descricao}
-              onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-              style={{ display: 'block', width: '100%' }}
-            />
-          </label>
-
-          <label>
-            Descricao curta (PDV, opcional)
-            <input
-              type="text"
-              value={form.descricaoPdv}
-              onChange={(e) => setForm((f) => ({ ...f, descricaoPdv: e.target.value }))}
-              style={{ display: 'block', width: '100%' }}
-            />
-          </label>
-
-          <label>
-            EAN (codigo de barras, opcional)
-            <input
-              type="text"
-              value={form.ean}
-              onChange={(e) => setForm((f) => ({ ...f, ean: e.target.value }))}
-              style={{ display: 'block', width: '100%' }}
-            />
-          </label>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <label style={{ flex: 1 }}>
-              Unidade
-              <select
-                value={form.unidade}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, unidade: e.target.value as 'UN' | 'KG' | 'L' }))
-                }
-                style={{ display: 'block', width: '100%' }}
-              >
-                <option value="UN">UN</option>
-                <option value="KG">KG</option>
-                <option value="L">L</option>
-              </select>
-            </label>
-            <label style={{ flex: 2 }}>
-              Categoria
-              <select
-                value={form.categoriaId}
-                onChange={(e) => setForm((f) => ({ ...f, categoriaId: e.target.value }))}
-                style={{ display: 'block', width: '100%' }}
-              >
-                <option value="">Sem categoria</option>
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
+              </thead>
+              <tbody>
+                {produtos.map((p) => (
+                  <tr
+                    key={p.id}
+                    className={
+                      [
+                        p.id === editandoId ? 'app-linha-destaque' : '',
+                        !p.ativo ? 'app-linha-inativa' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                    }
+                  >
+                    <td>{p.descricao}</td>
+                    <td>{p.ean ?? '-'}</td>
+                    <td>{formatarBRL(centavos(p.precoVenda))}</td>
+                    <td>{Number(p.estoqueAtual ?? 0)}</td>
+                    <td>
+                      <span className={`app-badge ${p.ativo ? 'app-badge-ok' : 'app-badge-erro'}`}>
+                        {p.ativo ? 'sim' : 'nao'}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="app-btn-ghost"
+                        onClick={() => selecionarParaEditar(p)}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </select>
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <input
-              type="text"
-              placeholder="Nova categoria"
-              value={novaCategoriaNome}
-              onChange={(e) => setNovaCategoriaNome(e.target.value)}
-              style={{ flex: 1, fontSize: '0.85rem' }}
-            />
-            <button
-              type="button"
-              onClick={() => void adicionarCategoria()}
-              style={{ fontSize: '0.85rem' }}
-            >
-              Adicionar categoria
-            </button>
+                {produtos.length === 0 && !carregando && (
+                  <tr>
+                    <td colSpan={6} style={{ color: 'var(--text-muted)', paddingTop: 8 }}>
+                      Nenhum produto encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <label style={{ flex: 1 }}>
-              Preco de venda (R$) *
-              <input
-                type="text"
-                inputMode="decimal"
-                value={form.precoVendaTexto}
-                onChange={(e) => setForm((f) => ({ ...f, precoVendaTexto: e.target.value }))}
-                style={{ display: 'block', width: '100%' }}
-              />
-            </label>
-            <label style={{ flex: 1 }}>
-              Custo medio (R$)
-              <input
-                type="text"
-                inputMode="decimal"
-                value={form.custoMedioTexto}
-                onChange={(e) => setForm((f) => ({ ...f, custoMedioTexto: e.target.value }))}
-                style={{ display: 'block', width: '100%' }}
-              />
-            </label>
-          </div>
+          <div className="app-card">
+            <h2>{editandoId ? 'Editar produto' : 'Novo produto'}</h2>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <label style={{ flex: 1 }}>
-              Estoque minimo
-              <input
-                type="text"
-                inputMode="decimal"
-                value={form.estoqueMinimoTexto}
-                onChange={(e) => setForm((f) => ({ ...f, estoqueMinimoTexto: e.target.value }))}
-                style={{ display: 'block', width: '100%' }}
-              />
-            </label>
-            {!editandoId && (
-              <label style={{ flex: 1 }}>
-                Estoque inicial
+            <div style={{ display: 'grid', gap: 12 }}>
+              <label>
+                <span className="app-label">Descricao *</span>
                 <input
                   type="text"
-                  inputMode="decimal"
-                  value={form.estoqueInicialTexto}
-                  onChange={(e) => setForm((f) => ({ ...f, estoqueInicialTexto: e.target.value }))}
-                  style={{ display: 'block', width: '100%' }}
+                  value={form.descricao}
+                  onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                  className="app-input"
                 />
               </label>
-            )}
-          </div>
 
-          {editandoId && (
-            <label style={{ display: 'block', marginTop: 8 }}>
-              <input
-                type="checkbox"
-                checked={form.ativo}
-                onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
-              />{' '}
-              Produto ativo
-            </label>
-          )}
+              <label>
+                <span className="app-label">Descricao curta (PDV, opcional)</span>
+                <input
+                  type="text"
+                  value={form.descricaoPdv}
+                  onChange={(e) => setForm((f) => ({ ...f, descricaoPdv: e.target.value }))}
+                  className="app-input"
+                />
+              </label>
 
-          {erroForm && <p style={{ color: '#dc2626' }}>{erroForm}</p>}
-          {mensagemOk && <p style={{ color: '#16a34a' }}>{mensagemOk}</p>}
+              <label>
+                <span className="app-label">EAN (codigo de barras, opcional)</span>
+                <input
+                  type="text"
+                  value={form.ean}
+                  onChange={(e) => setForm((f) => ({ ...f, ean: e.target.value }))}
+                  className="app-input"
+                />
+              </label>
 
-          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => void salvar()} disabled={salvando}>
-              {editandoId ? 'Salvar alteracoes' : 'Criar produto'}
-            </button>
-            {editandoId && (
-              <button type="button" onClick={iniciarNovo}>
-                Cancelar edicao
-              </button>
-            )}
-          </div>
-
-          {editandoId && produtoEmEdicao && (
-            <div style={{ marginTop: 24, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-              <h3>Movimentar estoque</h3>
-              <p>
-                Saldo atual: <strong>{Number(produtoEmEdicao.estoqueAtual ?? 0)}</strong>
-              </p>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}>
+              <div className="app-grid-2">
                 <label>
-                  Tipo
+                  <span className="app-label">Unidade</span>
                   <select
-                    value={ajusteTipo}
+                    value={form.unidade}
                     onChange={(e) =>
-                      setAjusteTipo(e.target.value as 'entrada' | 'perda' | 'ajuste')
+                      setForm((f) => ({ ...f, unidade: e.target.value as 'UN' | 'KG' | 'L' }))
                     }
-                    style={{ display: 'block' }}
+                    className="app-input"
                   >
-                    <option value="entrada">Entrada (recebi mercadoria)</option>
-                    <option value="perda">Perda/quebra</option>
-                    <option value="ajuste">Ajuste de contagem (+ ou -)</option>
+                    <option value="UN">UN</option>
+                    <option value="KG">KG</option>
+                    <option value="L">L</option>
                   </select>
                 </label>
                 <label>
-                  Quantidade
+                  <span className="app-label">Categoria</span>
+                  <select
+                    value={form.categoriaId}
+                    onChange={(e) => setForm((f) => ({ ...f, categoriaId: e.target.value }))}
+                    className="app-input"
+                  >
+                    <option value="">Sem categoria</option>
+                    {categorias.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Nova categoria"
+                  value={novaCategoriaNome}
+                  onChange={(e) => setNovaCategoriaNome(e.target.value)}
+                  className="app-input"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="app-btn-outline"
+                  onClick={() => void adicionarCategoria()}
+                >
+                  Adicionar
+                </button>
+              </div>
+
+              <div className="app-grid-2">
+                <label>
+                  <span className="app-label">Preco de venda (R$) *</span>
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={ajusteQuantidadeTexto}
-                    onChange={(e) => setAjusteQuantidadeTexto(e.target.value)}
-                    style={{ display: 'block', width: 100 }}
+                    value={form.precoVendaTexto}
+                    onChange={(e) => setForm((f) => ({ ...f, precoVendaTexto: e.target.value }))}
+                    className="app-input"
                   />
                 </label>
+                <label>
+                  <span className="app-label">Custo medio (R$)</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={form.custoMedioTexto}
+                    onChange={(e) => setForm((f) => ({ ...f, custoMedioTexto: e.target.value }))}
+                    className="app-input"
+                  />
+                </label>
+              </div>
+
+              <div className="app-grid-2">
+                <label>
+                  <span className="app-label">Estoque minimo</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={form.estoqueMinimoTexto}
+                    onChange={(e) => setForm((f) => ({ ...f, estoqueMinimoTexto: e.target.value }))}
+                    className="app-input"
+                  />
+                </label>
+                {!editandoId && (
+                  <label>
+                    <span className="app-label">Estoque inicial</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={form.estoqueInicialTexto}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, estoqueInicialTexto: e.target.value }))
+                      }
+                      className="app-input"
+                    />
+                  </label>
+                )}
+              </div>
+
+              {editandoId && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={form.ativo}
+                    onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
+                    style={{ width: 18, height: 18, accentColor: 'var(--gold)' }}
+                  />
+                  Produto ativo
+                </label>
+              )}
+
+              {erroForm && <p className="app-msg-erro">{erroForm}</p>}
+              {mensagemOk && <p className="app-msg-ok">{mensagemOk}</p>}
+
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
-                  onClick={() => void enviarAjusteEstoque()}
-                  disabled={ajustando}
+                  onClick={() => void salvar()}
+                  disabled={salvando}
+                  className="app-btn"
                 >
-                  Lancar
+                  {editandoId ? 'Salvar alteracoes' : 'Criar produto'}
                 </button>
+                {editandoId && (
+                  <button type="button" className="app-btn-ghost" onClick={iniciarNovo}>
+                    Cancelar edicao
+                  </button>
+                )}
               </div>
-              <label>
-                Observacao (opcional)
-                <input
-                  type="text"
-                  value={ajusteObservacao}
-                  onChange={(e) => setAjusteObservacao(e.target.value)}
-                  style={{ display: 'block', width: '100%' }}
-                />
-              </label>
-              {erroAjuste && <p style={{ color: '#dc2626' }}>{erroAjuste}</p>}
             </div>
-          )}
+
+            {editandoId && produtoEmEdicao && (
+              <div style={{ marginTop: 20, borderTop: '1px dashed var(--border)', paddingTop: 16 }}>
+                <h2 style={{ fontSize: '.95rem' }}>Movimentar estoque</h2>
+                <p style={{ color: 'var(--text-muted)' }}>
+                  Saldo atual:{' '}
+                  <strong style={{ color: 'var(--text)' }}>
+                    {Number(produtoEmEdicao.estoqueAtual ?? 0)}
+                  </strong>
+                </p>
+                <div className="app-pill-group" style={{ marginBottom: 10 }}>
+                  {(['entrada', 'perda', 'ajuste'] as const).map((tipo) => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      className="app-pill-btn"
+                      aria-pressed={ajusteTipo === tipo}
+                      onClick={() => setAjusteTipo(tipo)}
+                    >
+                      {tipo === 'entrada'
+                        ? 'Entrada (recebi mercadoria)'
+                        : tipo === 'perda'
+                          ? 'Perda/quebra'
+                          : 'Ajuste de contagem (+ ou -)'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }}>
+                  <label style={{ width: 120 }}>
+                    <span className="app-label">Quantidade</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={ajusteQuantidadeTexto}
+                      onChange={(e) => setAjusteQuantidadeTexto(e.target.value)}
+                      className="app-input"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="app-btn"
+                    onClick={() => void enviarAjusteEstoque()}
+                    disabled={ajustando}
+                  >
+                    Lancar
+                  </button>
+                </div>
+                <label style={{ display: 'block', marginTop: 10 }}>
+                  <span className="app-label">Observacao (opcional)</span>
+                  <input
+                    type="text"
+                    value={ajusteObservacao}
+                    onChange={(e) => setAjusteObservacao(e.target.value)}
+                    className="app-input"
+                  />
+                </label>
+                {erroAjuste && <p className="app-msg-erro">{erroAjuste}</p>}
+              </div>
+            )}
+          </div>
         </div>
-      </section>
-    </main>
+      </main>
+    </div>
   )
 }

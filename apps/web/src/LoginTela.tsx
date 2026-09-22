@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import logoAdega from './assets/logo-adega-dois-irmaos.jpg'
 import { ErroRequisicao, listarOperadores, login, loginComPin, type UsuarioSessao } from './api'
 
 interface Props {
@@ -15,21 +16,51 @@ export function LoginTela({ aoAutenticar }: Props) {
   const [modo, setModo] = useState<'admin' | 'operador'>('operador')
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 420 }}>
-      <h1>Sistema da Adega</h1>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button type="button" disabled={modo === 'operador'} onClick={() => setModo('operador')}>
+    <main className="app app-shell-estreito">
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <img
+          src={logoAdega}
+          alt="Adega Dois Irmaos"
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: 16,
+            boxShadow: '0 0 0 3px var(--gold), 0 8px 24px rgba(0,0,0,.5)',
+            objectFit: 'cover',
+          }}
+        />
+        <p className="app-eyebrow" style={{ marginTop: 14 }}>
+          Adega Dois Irmaos
+        </p>
+        <h1 style={{ margin: '4px 0 0', fontSize: '1.4rem' }}>Sistema da Adega</h1>
+      </div>
+
+      <div className="app-toggle-grupo">
+        <button
+          type="button"
+          className="app-toggle"
+          aria-pressed={modo === 'operador'}
+          onClick={() => setModo('operador')}
+        >
           Operador (PIN)
         </button>
-        <button type="button" disabled={modo === 'admin'} onClick={() => setModo('admin')}>
+        <button
+          type="button"
+          className="app-toggle"
+          aria-pressed={modo === 'admin'}
+          onClick={() => setModo('admin')}
+        >
           Admin (email/senha)
         </button>
       </div>
-      {modo === 'admin' ? (
-        <LoginAdmin aoAutenticar={aoAutenticar} />
-      ) : (
-        <LoginOperador aoAutenticar={aoAutenticar} />
-      )}
+
+      <div className="app-card">
+        {modo === 'admin' ? (
+          <LoginAdmin aoAutenticar={aoAutenticar} />
+        ) : (
+          <LoginOperador aoAutenticar={aoAutenticar} />
+        )}
+      </div>
     </main>
   )
 }
@@ -55,31 +86,31 @@ function LoginAdmin({ aoAutenticar }: Props) {
   }
 
   return (
-    <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 8 }}>
+    <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 14 }}>
       <label>
-        Email
+        <span className="app-label">Email</span>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ display: 'block', width: '100%' }}
+          className="app-input"
         />
       </label>
       <label>
-        Senha
+        <span className="app-label">Senha</span>
         <input
           type="password"
           required
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
-          style={{ display: 'block', width: '100%' }}
+          className="app-input"
         />
       </label>
-      <button type="submit" disabled={enviando}>
+      <button type="submit" disabled={enviando} className="app-btn app-btn-grande">
         {enviando ? 'Entrando...' : 'Entrar'}
       </button>
-      {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
+      {erro && <p className="app-msg-erro">{erro}</p>}
     </form>
   )
 }
@@ -107,18 +138,29 @@ function LoginOperador({ aoAutenticar }: Props) {
     return <p>Carregando operadores...</p>
   }
 
-  async function enviar(evento: React.FormEvent) {
-    evento.preventDefault()
+  async function enviar(pinFinal: string) {
     setErro(null)
     setEnviando(true)
     try {
-      const { usuario } = await loginComPin(usuarioId, pin)
+      const { usuario } = await loginComPin(usuarioId, pinFinal)
       aoAutenticar(usuario)
     } catch (e) {
       setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao entrar.')
+      setPin('')
     } finally {
       setEnviando(false)
     }
+  }
+
+  function apertarTecla(tecla: string) {
+    if (enviando) return
+    setErro(null)
+    setPin((atual) => (atual.length >= 8 ? atual : atual + tecla))
+  }
+
+  function apagar() {
+    if (enviando) return
+    setPin((atual) => atual.slice(0, -1))
   }
 
   if (operadores.length === 0) {
@@ -126,36 +168,65 @@ function LoginOperador({ aoAutenticar }: Props) {
   }
 
   return (
-    <form onSubmit={(e) => void enviar(e)} style={{ display: 'grid', gap: 8 }}>
-      <label>
-        Operador
-        <select
-          value={usuarioId}
-          onChange={(e) => setUsuarioId(e.target.value)}
-          style={{ display: 'block', width: '100%' }}
-        >
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        void enviar(pin)
+      }}
+      style={{ display: 'grid', gap: 14 }}
+    >
+      <div>
+        <span className="app-label">Operador</span>
+        <div className="app-pill-group">
           {operadores.map((o) => (
-            <option key={o.id} value={o.id}>
+            <button
+              key={o.id}
+              type="button"
+              className="app-pill-btn"
+              aria-pressed={usuarioId === o.id}
+              onClick={() => setUsuarioId(o.id)}
+            >
               {o.nome}
-            </option>
+            </button>
           ))}
-        </select>
-      </label>
-      <label>
-        PIN
+        </div>
+      </div>
+
+      <div>
+        <span className="app-label">PIN</span>
+        {/* Input real mantido (acessibilidade, colar PIN, teclado fisico) --
+            o teclado abaixo e um atalho visual, nao a unica forma de digitar. */}
         <input
           type="password"
           inputMode="numeric"
           required
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          style={{ display: 'block', width: '100%' }}
+          className="app-input app-pin-display"
+          style={{ color: 'var(--gold)' }}
         />
-      </label>
-      <button type="submit" disabled={enviando}>
+        <div className="app-keypad">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((n) => (
+            <button key={n} type="button" onClick={() => apertarTecla(n)}>
+              {n}
+            </button>
+          ))}
+          <button type="button" onClick={apagar}>
+            ⌫
+          </button>
+          <button type="button" onClick={() => apertarTecla('0')}>
+            0
+          </button>
+          <button type="button" onClick={() => setPin('')}>
+            C
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" disabled={enviando} className="app-btn app-btn-grande">
         {enviando ? 'Entrando...' : 'Entrar'}
       </button>
-      {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
+      {erro && <p className="app-msg-erro">{erro}</p>}
     </form>
   )
 }

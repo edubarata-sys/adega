@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { DiagnosticoTela } from './DiagnosticoTela'
+import './tema.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Elemento #root nao encontrado.')
