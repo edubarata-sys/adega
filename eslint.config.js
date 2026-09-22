@@ -4,7 +4,13 @@ import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', 'packages/db/drizzle/**'],
+    ignores: [
+      '**/dist/**',
+      '**/dist-exe/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      'packages/db/drizzle/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -16,6 +22,25 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       eqeqeq: ['error', 'always'],
       'no-console': 'off',
+    },
+  },
+  {
+    // Lancador do .exe (apps/api/src/executavel/servidor.mjs): unico arquivo
+    // .mjs do repo, roda direto em Node (sem build TS) -- por isso precisa
+    // dos globais de Node explicitos, que os arquivos .ts ja tem via
+    // tsconfig ("types": ["node"], nao passa por aqui).
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        URL: 'readonly',
+        Buffer: 'readonly',
+        require: 'readonly',
+        module: 'readonly',
+      },
     },
   },
   {

@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-exe
 coverage
 pnpm-lock.yaml
 packages/db/drizzle

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-diagnostico/
+dist-exe/
 build/
 coverage/
 .turbo/
