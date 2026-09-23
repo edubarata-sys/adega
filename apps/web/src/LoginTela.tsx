@@ -66,8 +66,11 @@ export function LoginTela({ aoAutenticar }: Props) {
 }
 
 function LoginAdmin({ aoAutenticar }: Props) {
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
+  // TEMPORARIO: pre-preenchido pra login em 1 clique enquanto o cliente so esta
+  // testando (ver HANDOFF.md). Trocar por campo vazio + credenciais reais antes
+  // de qualquer venda de verdade.
+  const [email, setEmail] = useState('admin@adega.local')
+  const [senha, setSenha] = useState('trocar-esta-senha-123')
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
@@ -118,7 +121,8 @@ function LoginAdmin({ aoAutenticar }: Props) {
 function LoginOperador({ aoAutenticar }: Props) {
   const [operadores, setOperadores] = useState<Array<{ id: string; nome: string }> | null>(null)
   const [usuarioId, setUsuarioId] = useState('')
-  const [pin, setPin] = useState('')
+  // TEMPORARIO: PIN pre-preenchido pra login em 1 clique (ver HANDOFF.md).
+  const [pin, setPin] = useState('135790')
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
