@@ -1,5 +1,5 @@
 import { aplicarMovimentoEstoque, schema } from '@adega/db'
-import { and, desc, eq, ilike, ne } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, ne } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { DependenciasApp } from '../dependencias'
@@ -67,6 +67,26 @@ const AjusteEstoqueBodySchema = z.object({
   observacao: z.string().trim().min(1).max(200).optional(),
 })
 
+/**
+ * Gera as variantes plausiveis de um EAN escaneado pra cobrir a ambiguidade
+ * UPC-A (12 digitos) <-> EAN-13 (13 digitos, zero a esquerda) -- leitoras
+ * fisicas podem emitir qualquer uma das duas formas dependendo da config,
+ * enquanto o cadastro pode ter guardado so uma delas. Sem isso, a busca
+ * EXATA por EAN falha silenciosamente pra produtos com codigo de 12 digitos
+ * (bebidas importadas, tipicamente) mesmo com o EAN certo na etiqueta.
+ */
+function candidatosEan(eanBruto: string): string[] {
+  const digitos = eanBruto.trim()
+  const candidatos = new Set<string>([digitos])
+  if (digitos.length === 13 && digitos.startsWith('0')) {
+    candidatos.add(digitos.slice(1))
+  }
+  if (digitos.length === 12) {
+    candidatos.add(`0${digitos}`)
+  }
+  return [...candidatos]
+}
+
 /** Verifica se ja existe outro produto ATIVO com o mesmo EAN -- o schema nao
  * tem unique constraint (granel/fracionado pode ter EAN nulo), mas dois
  * produtos ativos com o mesmo EAN quebrariam a busca exata da pistola
@@ -96,13 +116,14 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
     '/produtos/ean/:ean',
     { preHandler: requireAuth },
     async (request, reply) => {
+      const candidatos = candidatosEan(request.params.ean)
       const [produto] = await deps.db
         .select(selecaoProdutoComSaldo())
         .from(schema.produtos)
         .leftJoin(schema.estoqueSaldos, eq(schema.estoqueSaldos.produtoId, schema.produtos.id))
-        .where(eq(schema.produtos.ean, request.params.ean))
+        .where(and(inArray(schema.produtos.ean, candidatos), eq(schema.produtos.ativo, true)))
 
-      if (!produto || !produto.ativo) {
+      if (!produto) {
         return reply
           .code(404)
           .send({ status: 'erro', motivo: 'Produto nao encontrado para este EAN.' })
