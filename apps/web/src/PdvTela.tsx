@@ -60,6 +60,10 @@ function ReciboParaImpressao({ linhas }: { readonly linhas: readonly string[] })
   )
 }
 
+function centavosParaTexto(valor: number): string {
+  return (valor / 100).toFixed(2).replace('.', ',')
+}
+
 function reaisParaCentavos(texto: string): number {
   const normalizado = texto.trim().replace(',', '.')
   const valor = Number(normalizado)
@@ -95,6 +99,9 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
 
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('dinheiro')
   const [valorPagamentoTexto, setValorPagamentoTexto] = useState('')
+  // true depois que o operador mexe no valor na mao -- ai o campo para de
+  // ser preenchido sozinho com o que falta pagar ate o proximo pagamento.
+  const valorEditadoRef = useRef(false)
   const [pagamentos, setPagamentos] = useState<PagamentoInformado[]>([])
   const [erroPagamento, setErroPagamento] = useState<string | null>(null)
   // A loja tem duas maquininhas fisicas -- so aparece pra debito/credito, e
@@ -134,6 +141,15 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
 
   const total = totalCarrinho(carrinho)
   const pago = totalPagamentos(pagamentos)
+  const faltaPagar = Math.max(total - pago, 0)
+
+  // Campo de valor ja vem com o que falta pagar (subtotal na primeira vez,
+  // o restante depois de cada pagamento) -- pra dividir em dois cartoes o
+  // operador so baixa o valor do primeiro e o segundo ja vem com o resto.
+  useEffect(() => {
+    if (valorEditadoRef.current) return
+    setValorPagamentoTexto(faltaPagar > 0 ? centavosParaTexto(faltaPagar) : '')
+  }, [faltaPagar])
 
   function adicionarProduto(produto: ProdutoApi) {
     setCarrinho((atual) =>
@@ -238,21 +254,33 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
       setErroPagamento('Informe um valor de pagamento maior que zero.')
       return
     }
+    // Mesma regra do core (venda.ts): so dinheiro devolve troco. Avisar aqui
+    // evita o operador descobrir so no "Confirmar venda".
+    if (formaPagamento !== 'dinheiro' && valor > faltaPagar) {
+      setErroPagamento(
+        `${formaPagamento} nao pode passar do que falta pagar (${formatarBRL(centavos(faltaPagar))}). Troco so em dinheiro.`,
+      )
+      return
+    }
     const pagamento: PagamentoInformado = {
       forma: formaPagamento,
       valor: centavos(valor),
       ...(ehPagamentoDeCartao && terminalApelido ? { terminalApelido } : {}),
     }
+    valorEditadoRef.current = false
+    const restante = Math.max(faltaPagar - valor, 0)
     setPagamentos((atual) => [...atual, pagamento])
-    setValorPagamentoTexto('')
+    setValorPagamentoTexto(restante > 0 ? centavosParaTexto(restante) : '')
     setTerminalApelido(null)
   }
 
   function removerPagamento(indice: number) {
+    valorEditadoRef.current = false
     setPagamentos((atual) => atual.filter((_, i) => i !== indice))
   }
 
   function novaVenda() {
+    valorEditadoRef.current = false
     setCarrinho([])
     setPagamentos([])
     setResultado(null)
@@ -350,7 +378,7 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   }
 
   return (
-    <div className="app">
+    <div className="app pdv-tela">
       <TopoApp titulo="Ponto de venda">
         <span>{operadorNome}</span>
         <button type="button" className="app-btn-outline" onClick={aoQuererGerenciarProdutos}>
@@ -361,208 +389,245 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
         </button>
       </TopoApp>
 
-      <main className="app-shell" style={{ maxWidth: 720 }}>
-        <div className="app-card">
-          <span className="app-label">Codigo de barras ou nome do produto</span>
-          <input
-            ref={eanRef}
-            autoFocus
-            type="text"
-            value={eanTexto}
-            onChange={(e) => setEanTexto(e.target.value)}
-            onKeyDown={aoTeclarBusca}
-            placeholder="Passe a pistola, ou digite o nome e aperte Enter"
-            className="app-input app-input-lg"
-          />
-          {buscando && <p className="app-label">Buscando...</p>}
-          {erroBusca && <p className="app-msg-erro">{erroBusca}</p>}
-          {sugestoes.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-              {sugestoes.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="app-btn-outline"
-                  style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between' }}
-                  onClick={() => adicionarProduto(p)}
-                >
-                  <span>{p.descricao}</span>
-                  <span>{formatarBRL(centavos(p.precoVenda))}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="app-card">
-          <table className="app-table">
-            <thead>
-              <tr>
-                <th>Produto</th>
-                <th>Qtd</th>
-                <th>Preco</th>
-                <th>Total</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {carrinho.map((item) => (
-                <tr key={item.produtoId}>
-                  <td>{item.descricao}</td>
-                  <td>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={item.quantidade}
-                      onChange={(e) =>
-                        setCarrinho((atual) =>
-                          atualizarQuantidade(
-                            atual,
-                            item.produtoId,
-                            Math.max(1, Number(e.target.value) || 1),
-                          ),
-                        )
-                      }
-                      className="app-input"
-                      style={{ width: 64, padding: '6px 8px', fontSize: '.95rem' }}
-                    />
-                  </td>
-                  <td>{formatarBRL(item.precoUnitario)}</td>
-                  <td>{formatarBRL(totalItem(item))}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="app-btn-ghost"
-                      onClick={() =>
-                        setCarrinho((atual) => removerDoCarrinho(atual, item.produtoId))
-                      }
-                    >
-                      remover
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {carrinho.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ color: 'var(--text-muted)', paddingTop: 12 }}>
-                    Nenhum item no carrinho ainda. Passe a pistola no campo acima.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: 12 }}>
-            <p className="app-total-label">Total</p>
-            <p className="app-total">{formatarBRL(total)}</p>
-          </div>
-        </div>
-
-        <div className="app-card">
-          <h2>Pagamento</h2>
-          <div className="app-pill-group" style={{ marginBottom: 12 }}>
-            {FORMAS_PAGAMENTO.map((forma) => (
-              <button
-                key={forma}
-                type="button"
-                className="app-pill-btn"
-                aria-pressed={formaPagamento === forma}
-                onClick={() => {
-                  setFormaPagamento(forma)
-                  setTerminalApelido(null)
-                }}
-              >
-                {forma}
-              </button>
-            ))}
-          </div>
-
-          {ehPagamentoDeCartao && (
-            <div style={{ marginBottom: 12 }}>
-              <span className="app-label">Maquininha</span>
-              <div className="app-pill-group">
-                {['Maquininha 1', 'Maquininha 2'].map((apelido) => (
+      {/* Tela cheia sem rolagem geral: coluna da esquerda = busca + carrinho
+          (so o carrinho rola por dentro); coluna da direita = total, falta
+          pagar, pagamento e confirmar, sempre visiveis. */}
+      <main className="pdv-corpo">
+        <div className="pdv-coluna">
+          <div className="app-card pdv-card-compacto">
+            <span className="app-label">Codigo de barras ou nome do produto</span>
+            <input
+              ref={eanRef}
+              autoFocus
+              type="text"
+              value={eanTexto}
+              onChange={(e) => setEanTexto(e.target.value)}
+              onKeyDown={aoTeclarBusca}
+              placeholder="Passe a pistola, ou digite o nome e aperte Enter"
+              className="app-input app-input-lg"
+            />
+            {buscando && <p className="app-label">Buscando...</p>}
+            {erroBusca && <p className="app-msg-erro">{erroBusca}</p>}
+            {sugestoes.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                {sugestoes.map((p) => (
                   <button
-                    key={apelido}
+                    key={p.id}
                     type="button"
-                    className="app-pill-btn"
-                    aria-pressed={terminalApelido === apelido}
-                    onClick={() => setTerminalApelido(apelido)}
+                    className="app-btn-outline"
+                    style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between' }}
+                    onClick={() => adicionarProduto(p)}
                   >
-                    {apelido}
+                    <span>{p.descricao}</span>
+                    <span>{formatarBRL(centavos(p.precoVenda))}</span>
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap' }}>
-            <label style={{ flex: 1, minWidth: 160 }}>
-              <span className="app-label">Valor (R$)</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={valorPagamentoTexto}
-                onChange={(e) => setValorPagamentoTexto(e.target.value)}
-                className="app-input"
-              />
-            </label>
-            <button type="button" onClick={adicionarPagamento} className="app-btn">
-              Adicionar pagamento
-            </button>
-          </div>
-          {erroPagamento && <p className="app-msg-erro">{erroPagamento}</p>}
-
-          {pagamentos.length > 0 && (
-            <ul style={{ listStyle: 'none', padding: 0, marginTop: 12, display: 'grid', gap: 6 }}>
-              {pagamentos.map((p, indice) => (
-                <li
-                  key={indice}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    background: 'var(--bg-card-alt)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                  }}
-                >
-                  <span>
-                    {p.forma}
-                    {p.terminalApelido ? ` (${p.terminalApelido})` : ''}: {formatarBRL(p.valor)}
-                  </span>
-                  <button
-                    type="button"
-                    className="app-btn-ghost"
-                    onClick={() => removerPagamento(indice)}
-                  >
-                    remover
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p style={{ marginTop: 12 }}>
-            Pago: <strong>{formatarBRL(pago)}</strong>{' '}
-            {pago > total && (
-              <span style={{ color: 'var(--green)' }}>
-                (troco estimado: {formatarBRL(centavos(pago - total))})
-              </span>
             )}
-          </p>
+          </div>
+
+          <div className="app-card pdv-card-compacto pdv-carrinho">
+            <div className="pdv-carrinho-lista">
+              <table className="app-table">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Qtd</th>
+                    <th>Preco</th>
+                    <th>Total</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {carrinho.map((item) => (
+                    <tr key={item.produtoId}>
+                      <td>{item.descricao}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={item.quantidade}
+                          onChange={(e) =>
+                            setCarrinho((atual) =>
+                              atualizarQuantidade(
+                                atual,
+                                item.produtoId,
+                                Math.max(1, Number(e.target.value) || 1),
+                              ),
+                            )
+                          }
+                          className="app-input"
+                          style={{ width: 64, padding: '6px 8px', fontSize: '.95rem' }}
+                        />
+                      </td>
+                      <td>{formatarBRL(item.precoUnitario)}</td>
+                      <td>{formatarBRL(totalItem(item))}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="app-btn-ghost"
+                          onClick={() =>
+                            setCarrinho((atual) => removerDoCarrinho(atual, item.produtoId))
+                          }
+                        >
+                          remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {carrinho.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ color: 'var(--text-muted)', paddingTop: 12 }}>
+                        Nenhum item no carrinho ainda. Passe a pistola no campo acima.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        {erroVenda && <p className="app-msg-erro">{erroVenda}</p>}
-        <button
-          type="button"
-          disabled={carrinho.length === 0 || pagamentos.length === 0 || enviandoVenda}
-          onClick={() => void confirmarVenda()}
-          className="app-btn app-btn-grande"
-        >
-          {enviandoVenda ? 'Registrando...' : 'Confirmar venda'}
-        </button>
+        <div className="pdv-coluna pdv-coluna-pagamento">
+          <div className="app-card pdv-card-compacto">
+            <p className="app-total-label">Total da venda</p>
+            <p className="app-total" style={{ margin: 0 }}>
+              {formatarBRL(total)}
+            </p>
+            {carrinho.length > 0 && (
+              <p style={{ margin: '6px 0 0' }}>
+                {faltaPagar > 0 ? (
+                  <>
+                    Falta pagar:{' '}
+                    <strong style={{ color: 'var(--gold)' }}>
+                      {formatarBRL(centavos(faltaPagar))}
+                    </strong>
+                  </>
+                ) : (
+                  <strong style={{ color: 'var(--green)' }}>Pago</strong>
+                )}
+              </p>
+            )}
+          </div>
+
+          <div className="app-card pdv-card-compacto pdv-pagamento">
+            <h2>Pagamento</h2>
+            <div className="app-pill-group" style={{ marginBottom: 12 }}>
+              {FORMAS_PAGAMENTO.map((forma) => (
+                <button
+                  key={forma}
+                  type="button"
+                  className="app-pill-btn"
+                  aria-pressed={formaPagamento === forma}
+                  onClick={() => {
+                    setFormaPagamento(forma)
+                    setTerminalApelido(null)
+                  }}
+                >
+                  {forma}
+                </button>
+              ))}
+            </div>
+
+            {ehPagamentoDeCartao && (
+              <div style={{ marginBottom: 12 }}>
+                <span className="app-label">Maquininha</span>
+                <div className="app-pill-group">
+                  {['Maquininha 1', 'Maquininha 2'].map((apelido) => (
+                    <button
+                      key={apelido}
+                      type="button"
+                      className="app-pill-btn"
+                      aria-pressed={terminalApelido === apelido}
+                      onClick={() => setTerminalApelido(apelido)}
+                    >
+                      {apelido}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap' }}>
+              <label style={{ flex: 1, minWidth: 110 }}>
+                <span className="app-label">Valor (R$) -- baixe pra dividir</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={valorPagamentoTexto}
+                  onChange={(e) => {
+                    valorEditadoRef.current = true
+                    setValorPagamentoTexto(e.target.value)
+                  }}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      adicionarPagamento()
+                    }
+                  }}
+                  className="app-input"
+                />
+              </label>
+              <button type="button" onClick={adicionarPagamento} className="app-btn">
+                Adicionar pagamento
+              </button>
+            </div>
+            {erroPagamento && <p className="app-msg-erro">{erroPagamento}</p>}
+
+            {pagamentos.length > 0 && (
+              <ul style={{ listStyle: 'none', padding: 0, marginTop: 12, display: 'grid', gap: 6 }}>
+                {pagamentos.map((p, indice) => (
+                  <li
+                    key={indice}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'var(--bg-card-alt)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                    }}
+                  >
+                    <span>
+                      {p.forma}
+                      {p.terminalApelido ? ` (${p.terminalApelido})` : ''}: {formatarBRL(p.valor)}
+                    </span>
+                    <button
+                      type="button"
+                      className="app-btn-ghost"
+                      onClick={() => removerPagamento(indice)}
+                    >
+                      remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p style={{ marginTop: 12 }}>
+              Pago: <strong>{formatarBRL(pago)}</strong>{' '}
+              {pago > total && (
+                <span style={{ color: 'var(--green)' }}>
+                  (troco estimado: {formatarBRL(centavos(pago - total))})
+                </span>
+              )}
+            </p>
+          </div>
+
+          {erroVenda && <p className="app-msg-erro">{erroVenda}</p>}
+          <button
+            type="button"
+            disabled={
+              carrinho.length === 0 || pagamentos.length === 0 || faltaPagar > 0 || enviandoVenda
+            }
+            onClick={() => void confirmarVenda()}
+            className="app-btn app-btn-grande"
+          >
+            {enviandoVenda ? 'Registrando...' : 'Confirmar venda'}
+          </button>
+        </div>
       </main>
     </div>
   )

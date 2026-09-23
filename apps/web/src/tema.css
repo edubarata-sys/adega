@@ -518,3 +518,99 @@ body,
     white-space: pre;
   }
 }
+
+/* ------------------------------------------------------------------
+ * Tela de venda em tela cheia, SEM barra de rolagem geral (pedido do
+ * cliente 23/09): so a lista do carrinho rola por dentro; total, falta
+ * pagar, pagamento e confirmar ficam sempre a vista na coluna da direita.
+ * ------------------------------------------------------------------ */
+.pdv-tela {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pdv-tela > .app-header {
+  flex: 0 0 auto;
+}
+.pdv-corpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 16px;
+}
+.pdv-coluna {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pdv-coluna > .app-card,
+.pdv-coluna > .app-card-compacto {
+  margin-bottom: 0;
+}
+.pdv-card-compacto {
+  padding: 14px 18px;
+}
+.pdv-carrinho {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pdv-carrinho-lista {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.pdv-carrinho-lista thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 1;
+}
+/* Coluna da direita: total em cima, pagamento no meio (so ele rola por
+ * dentro se a tela for baixa), botao Confirmar preso embaixo, sempre a vista. */
+.pdv-coluna-pagamento {
+  overflow: hidden;
+}
+.pdv-pagamento {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.pdv-pagamento h2 {
+  margin-bottom: 10px;
+}
+.pdv-pagamento .app-pill-group {
+  gap: 6px;
+}
+.pdv-coluna-pagamento > .app-btn-grande,
+.pdv-coluna-pagamento > .app-msg-erro {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Celular/tela estreita: nao cabe lado a lado, volta pro empilhado normal. */
+@media (max-width: 900px) {
+  .pdv-tela {
+    height: auto;
+    overflow: visible;
+  }
+  .pdv-corpo {
+    grid-template-columns: 1fr;
+  }
+  .pdv-carrinho-lista {
+    max-height: 45vh;
+  }
+  .pdv-coluna-pagamento {
+    overflow: visible;
+  }
+}
