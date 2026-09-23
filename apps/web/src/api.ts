@@ -40,6 +40,9 @@ export class ErroRequisicao extends Error {
   constructor(
     message: string,
     readonly codigo?: string,
+    /** Status HTTP -- permite distinguir "nao encontrado" (404) de sessao
+     * expirada/erro de servidor sem depender do texto da mensagem. */
+    readonly status?: number,
   ) {
     super(message)
   }
@@ -53,7 +56,7 @@ async function requisitar<T>(caminho: string, opcoes?: RequestInit): Promise<T> 
   const corpo = (await res.json().catch(() => ({}))) as T | ErroApi
   if (!res.ok) {
     const erro = corpo as ErroApi
-    throw new ErroRequisicao(erro.motivo ?? `Erro ${res.status}`, erro.codigo)
+    throw new ErroRequisicao(erro.motivo ?? `Erro ${res.status}`, erro.codigo, res.status)
   }
   return corpo as T
 }

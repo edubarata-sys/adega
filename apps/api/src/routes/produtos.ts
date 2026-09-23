@@ -152,10 +152,19 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
         .select(selecaoProdutoComSaldo())
         .from(schema.produtos)
         .leftJoin(schema.estoqueSaldos, eq(schema.estoqueSaldos.produtoId, schema.produtos.id))
-        .where(ilike(schema.produtos.descricao, `%${termo}%`))
+        // `ativo` no WHERE (nao depois do LIMIT): filtrar depois deixava
+        // produtos inativos ocuparem vagas das 20 e esconderem ativos.
+        // `%`/`_` digitados viram literais em vez de curinga do ILIKE.
+        .where(
+          and(
+            ilike(schema.produtos.descricao, `%${termo.replace(/[\\%_]/g, '\\$&')}%`),
+            eq(schema.produtos.ativo, true),
+          ),
+        )
+        .orderBy(schema.produtos.descricao)
         .limit(LIMITE_BUSCA_DESCRICAO)
 
-      return { produtos: produtos.filter((p) => p.ativo) }
+      return { produtos }
     },
   )
 

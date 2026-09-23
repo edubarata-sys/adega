@@ -476,3 +476,45 @@ body,
 .mobile-mic-btn:disabled {
   opacity: 0.85;
 }
+
+/* ------------------------------------------------------------------
+ * Recibo impresso (58mm) -- ver ReciboParaImpressao em PdvTela.tsx.
+ * So age quando existe um recibo na pagina (:has), pra nao atrapalhar a
+ * impressao da pagina de diagnostico.
+ * ------------------------------------------------------------------ */
+.recibo-impressao {
+  display: none;
+}
+
+@media print {
+  html:has(.recibo-impressao),
+  body:has(> .recibo-impressao) {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  body:has(> .recibo-impressao) > :not(.recibo-impressao) {
+    display: none !important;
+  }
+
+  .recibo-impressao {
+    display: block !important;
+    width: 48mm;
+    margin: 0 auto;
+    padding: 2mm 0 6mm;
+  }
+
+  .recibo-impressao pre {
+    margin: 0;
+    color: #000;
+    background: #fff;
+    font:
+      7pt/1.25 'Courier New',
+      Courier,
+      monospace;
+    white-space: pre;
+  }
+}

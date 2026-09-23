@@ -1,10 +1,13 @@
 import { centavos, formatarBRL, FORMAS_PAGAMENTO, type FormaPagamento } from '@adega/core'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   buscarProdutoPorEan,
+  buscarProdutosPorDescricao,
   buscarRecibo,
   ErroRequisicao,
   registrarVenda,
+  type ProdutoApi,
   type ReciboApi,
   type VendaConfirmadaApi,
 } from './api'
@@ -24,6 +27,37 @@ interface Props {
   readonly operadorNome: string
   readonly aoQuererFecharCaixa: () => void
   readonly aoQuererGerenciarProdutos: () => void
+}
+
+/**
+ * Deteccao de leitura da pistola SEM depender do sufixo: o teste de hardware
+ * de 21/09 confirmou que a pistola le, mas nunca registrou se ela termina com
+ * Enter, Tab ou nada (ver DiagnosticoTela, sufixoTerminacao). Por isso a tela
+ * aceita Enter OU Tab, e tambem dispara sozinha quando chega uma rajada de
+ * digitos rapida demais pra ser digitacao humana e depois para.
+ */
+const LIMIAR_PISTOLA_MS = 35
+const ESPERA_FIM_LEITURA_MS = 150
+const MIN_DIGITOS_EAN = 8
+
+/**
+ * Copia do recibo que so existe na impressao. Vai direto pro <body> (portal)
+ * pra que o CSS de impressao (tema.css, `.recibo-impressao`) consiga esconder
+ * TODO o resto da tela -- antes, window.print() imprimia a pagina inteira do
+ * PDV encolhida pra 58mm (tira longa, quase vazia, texto bege quase apagado).
+ * O tamanho da pagina acompanha o numero de linhas, entao a impressora para
+ * de puxar papel quando o recibo acaba.
+ */
+function ReciboParaImpressao({ linhas }: { readonly linhas: readonly string[] }) {
+  // 7pt x 1.25 de entrelinha ~= 3.1mm por linha, + folga pro corte.
+  const alturaMm = Math.ceil(linhas.length * 3.2 + 12)
+  return createPortal(
+    <div className="recibo-impressao">
+      <style>{`@media print { @page { size: 58mm ${alturaMm}mm; margin: 0; } }`}</style>
+      <pre>{linhas.join('\n')}</pre>
+    </div>,
+    document.body,
+  )
 }
 
 function reaisParaCentavos(texto: string): number {
@@ -46,7 +80,18 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   const [eanTexto, setEanTexto] = useState('')
   const [erroBusca, setErroBusca] = useState<string | null>(null)
   const [buscando, setBuscando] = useState(false)
+  const [sugestoes, setSugestoes] = useState<ProdutoApi[]>([])
   const eanRef = useRef<HTMLInputElement>(null)
+  const buscandoRef = useRef(false)
+  const teclasRef = useRef<number[]>([])
+  const timerLeituraRef = useRef<number | null>(null)
+
+  useEffect(
+    () => () => {
+      if (timerLeituraRef.current !== null) window.clearTimeout(timerLeituraRef.current)
+    },
+    [],
+  )
 
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('dinheiro')
   const [valorPagamentoTexto, setValorPagamentoTexto] = useState('')
@@ -90,31 +135,100 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   const total = totalCarrinho(carrinho)
   const pago = totalPagamentos(pagamentos)
 
-  async function buscarPorEan(evento: React.KeyboardEvent<HTMLInputElement>) {
-    if (evento.key !== 'Enter') return
-    evento.preventDefault()
-    const ean = eanTexto.trim()
-    if (!ean) return
+  function adicionarProduto(produto: ProdutoApi) {
+    setCarrinho((atual) =>
+      adicionarAoCarrinho(atual, {
+        produtoId: produto.id,
+        ean: produto.ean,
+        descricao: produto.descricao,
+        precoUnitario: centavos(produto.precoVenda),
+        quantidade: 1,
+      }),
+    )
+    setSugestoes([])
+    setErroBusca(null)
+    eanRef.current?.focus()
+  }
+
+  /**
+   * Codigo so com digitos -> busca exata por EAN (pistola). Texto com letras
+   * -> busca por nome e mostra a lista pra escolher. O campo e limpo ANTES da
+   * busca: se a proxima leitura da pistola chegar, nao gruda no codigo
+   * anterior (antes, um codigo nao encontrado ficava no campo e a leitura
+   * seguinte virava um numero de 26 digitos que nunca achava nada).
+   */
+  async function processarEntrada(textoBruto: string) {
+    const texto = textoBruto.trim()
+    if (!texto || buscandoRef.current) return
+    buscandoRef.current = true
     setBuscando(true)
     setErroBusca(null)
+    setSugestoes([])
+    setEanTexto('')
     try {
-      const { produto } = await buscarProdutoPorEan(ean)
-      setCarrinho((atual) =>
-        adicionarAoCarrinho(atual, {
-          produtoId: produto.id,
-          ean: produto.ean,
-          descricao: produto.descricao,
-          precoUnitario: centavos(produto.precoVenda),
-          quantidade: 1,
-        }),
-      )
-      setEanTexto('')
+      if (/^\d+$/.test(texto)) {
+        try {
+          const { produto } = await buscarProdutoPorEan(texto)
+          adicionarProduto(produto)
+        } catch (e) {
+          if (e instanceof ErroRequisicao && e.status === 404) {
+            setErroBusca(
+              `Codigo ${texto} nao esta cadastrado em nenhum produto. Digite o nome do produto e aperte Enter para buscar.`,
+            )
+            return
+          }
+          throw e
+        }
+        return
+      }
+      if (texto.length < 2) {
+        setErroBusca('Digite ao menos 2 letras do nome do produto.')
+        return
+      }
+      const { produtos } = await buscarProdutosPorDescricao(texto)
+      if (produtos.length === 0) {
+        setErroBusca(`Nenhum produto encontrado com "${texto}".`)
+      } else {
+        setSugestoes(produtos)
+      }
     } catch (e) {
-      setErroBusca(e instanceof ErroRequisicao ? e.message : 'Produto nao encontrado.')
+      setErroBusca(e instanceof Error ? e.message : 'Erro ao buscar produto.')
     } finally {
+      buscandoRef.current = false
       setBuscando(false)
       eanRef.current?.focus()
     }
+  }
+
+  function cancelarTimerLeitura() {
+    if (timerLeituraRef.current !== null) {
+      window.clearTimeout(timerLeituraRef.current)
+      timerLeituraRef.current = null
+    }
+  }
+
+  function aoTeclarBusca(evento: React.KeyboardEvent<HTMLInputElement>) {
+    if (evento.key === 'Enter' || evento.key === 'Tab') {
+      // Tab com o campo vazio continua navegando normalmente.
+      if (evento.key === 'Tab' && !evento.currentTarget.value.trim()) return
+      evento.preventDefault()
+      cancelarTimerLeitura()
+      teclasRef.current = []
+      void processarEntrada(evento.currentTarget.value)
+      return
+    }
+    if (evento.key.length !== 1) return
+    teclasRef.current.push(performance.now())
+    cancelarTimerLeitura()
+    timerLeituraRef.current = window.setTimeout(() => {
+      timerLeituraRef.current = null
+      const marcas = teclasRef.current
+      teclasRef.current = []
+      const valor = eanRef.current?.value.trim() ?? ''
+      if (marcas.length < MIN_DIGITOS_EAN || !/^\d{8,14}$/.test(valor)) return
+      const intervaloMedio = (marcas[marcas.length - 1]! - marcas[0]!) / (marcas.length - 1)
+      if (intervaloMedio <= LIMIAR_PISTOLA_MS) void processarEntrada(valor)
+    }, ESPERA_FIM_LEITURA_MS)
   }
 
   function adicionarPagamento() {
@@ -203,6 +317,7 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
 
             {recibo && (
               <>
+                <ReciboParaImpressao linhas={recibo.linhas} />
                 <pre
                   style={{
                     fontFamily: 'ui-monospace, monospace',
@@ -217,12 +332,8 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
                 >
                   {recibo.linhas.join('\n')}
                 </pre>
-                <p className="app-aviso">
-                  Impressao real (ESC/POS) ainda depende de uma impressora fisica conectada -- o
-                  botao abaixo e so um fallback AUXILIAR via janela de impressao do navegador.
-                </p>
                 <button type="button" onClick={() => window.print()} className="app-btn-outline">
-                  Imprimir (navegador -- auxiliar)
+                  Imprimir recibo
                 </button>
               </>
             )}
@@ -252,19 +363,35 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
 
       <main className="app-shell" style={{ maxWidth: 720 }}>
         <div className="app-card">
-          <span className="app-label">Codigo de barras (EAN)</span>
+          <span className="app-label">Codigo de barras ou nome do produto</span>
           <input
             ref={eanRef}
             autoFocus
             type="text"
             value={eanTexto}
-            disabled={buscando}
             onChange={(e) => setEanTexto(e.target.value)}
-            onKeyDown={(e) => void buscarPorEan(e)}
-            placeholder="Passe a pistola ou digite e pressione Enter"
+            onKeyDown={aoTeclarBusca}
+            placeholder="Passe a pistola, ou digite o nome e aperte Enter"
             className="app-input app-input-lg"
           />
+          {buscando && <p className="app-label">Buscando...</p>}
           {erroBusca && <p className="app-msg-erro">{erroBusca}</p>}
+          {sugestoes.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              {sugestoes.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="app-btn-outline"
+                  style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between' }}
+                  onClick={() => adicionarProduto(p)}
+                >
+                  <span>{p.descricao}</span>
+                  <span>{formatarBRL(centavos(p.precoVenda))}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="app-card">
