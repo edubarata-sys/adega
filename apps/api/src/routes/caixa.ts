@@ -26,7 +26,17 @@ export function registrarRotasCaixa(app: FastifyInstance, deps: DependenciasApp)
 
   app.get('/caixa/atual', { preHandler: requireAuth }, async () => {
     const sessao = await buscarSessaoAberta(deps)
-    return { sessao }
+    if (!sessao) return { sessao, totalVendido: null }
+
+    // Leitura simples pro painel mobile (consulta de caixa, so leitura,
+    // nenhum efeito colateral) -- soma o total das vendas PAGAS da sessao
+    // aberta, igual ao criterio usado no relatorio de vendas.
+    const [somaLinha] = await deps.db
+      .select({ total: sql<string>`COALESCE(SUM(${schema.vendas.total}), 0)` })
+      .from(schema.vendas)
+      .where(and(eq(schema.vendas.sessaoCaixaId, sessao.id), eq(schema.vendas.status, 'paga')))
+
+    return { sessao, totalVendido: Number(somaLinha?.total ?? 0) }
   })
 
   /**

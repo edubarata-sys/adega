@@ -3,6 +3,7 @@ import { AbrirCaixaTela } from './AbrirCaixaTela'
 import { caixaAtual, eu, type SessaoCaixaApi, type UsuarioSessao } from './api'
 import { FecharCaixaTela } from './FecharCaixaTela'
 import { LoginTela } from './LoginTela'
+import { PainelMobileTela } from './PainelMobileTela'
 import { PdvTela } from './PdvTela'
 import { ProdutosTela } from './ProdutosTela'
 
@@ -22,7 +23,62 @@ type Estado =
  * terminal fazendo uma coisa de cada vez, entao uma maquina de estados
  * simples e suficiente e mais facil de auditar que uma lib de rotas.
  */
+/**
+ * Painel mobile (HANDOFF.md secao 12): entrada separada em /mobile, fora da
+ * maquina de estados do PDV de balcao -- login proprio (reaproveita
+ * LoginTela) e depois direto pro painel, sem passar por abertura de caixa.
+ * So um `if` de pathname, nao uma lib de router (mesmo raciocinio do
+ * comentario da funcao App abaixo: uma unica rota extra nao justifica isso).
+ */
+function PainelMobileApp() {
+  const [usuario, setUsuario] = useState<UsuarioSessao | null>(null)
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    let cancelado = false
+    eu()
+      .then((r) => {
+        if (!cancelado) setUsuario(r.usuario)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelado) setCarregando(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  if (carregando) {
+    return (
+      <div className="app" style={{ padding: '2rem' }}>
+        <p>Carregando...</p>
+      </div>
+    )
+  }
+
+  if (!usuario) {
+    return <LoginTela aoAutenticar={setUsuario} />
+  }
+
+  return <PainelMobileTela usuario={usuario} aoSair={() => setUsuario(null)} />
+}
+
 export function App() {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/mobile')) {
+    return <PainelMobileApp />
+  }
+  return <AppPdv />
+}
+
+/**
+ * Fluxo original do PDV de balcao, renomeado de `App` pra `AppPdv` na hora
+ * de introduzir a rota /mobile acima -- precisa ser um componente proprio
+ * (nao só um `if` dentro de `App`) porque ele usa hooks (`useState`), e
+ * hooks nao podem vir depois de um `return` condicional no mesmo componente
+ * (regra das Hooks do React).
+ */
+function AppPdv() {
   const [estado, setEstado] = useState<Estado>({ fase: 'carregando' })
 
   useEffect(() => {

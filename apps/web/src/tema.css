@@ -389,3 +389,90 @@ body,
     grid-template-columns: 1fr;
   }
 }
+
+/* Painel mobile (HANDOFF.md secao 12) -- navegacao propria de app de
+   celular (barra fixa embaixo, botao de microfone grande e circular),
+   deliberadamente diferente dos componentes do sistema de balcao
+   (app-toggle-grupo etc.) usados nas telas desktop/PDV. */
+.mobile-shell {
+  padding-bottom: 92px;
+}
+
+.mobile-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--bg-card);
+  border-top: 1px solid #2a2318;
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+  gap: 6px;
+  z-index: 10;
+}
+
+.mobile-tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.mobile-tab-icone {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.mobile-tab-btn[aria-pressed='true'] {
+  color: var(--gold);
+  background: rgba(242, 183, 5, 0.12);
+}
+
+.mobile-mic-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 148px;
+  height: 148px;
+  margin: 4px auto 8px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: #1a1508;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(242, 183, 5, 0.35);
+}
+
+.mobile-mic-icone {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.mobile-mic-btn.ouvindo {
+  animation: mobile-pulso 1.1s ease-in-out infinite;
+}
+
+@keyframes mobile-pulso {
+  0%,
+  100% {
+    box-shadow: 0 10px 28px rgba(242, 183, 5, 0.35);
+  }
+  50% {
+    box-shadow: 0 10px 42px rgba(242, 183, 5, 0.65);
+  }
+}
+
+.mobile-mic-btn:disabled {
+  opacity: 0.85;
+}

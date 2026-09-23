@@ -85,7 +85,7 @@ export function eu() {
 }
 
 export function caixaAtual() {
-  return requisitar<{ sessao: SessaoCaixaApi | null }>('/caixa/atual')
+  return requisitar<{ sessao: SessaoCaixaApi | null; totalVendido: number | null }>('/caixa/atual')
 }
 
 export function abrirCaixa(fundoTroco: number) {
@@ -239,4 +239,29 @@ export function ajustarEstoque(
     `/produtos/${encodeURIComponent(produtoId)}/estoque`,
     { method: 'POST', body: JSON.stringify({ tipo, quantidade, observacao }) },
   )
+}
+
+/**
+ * PASSO 12 (painel mobile): baixa o extrato de vendas em XML do periodo.
+ * Usa fetch (nao um <a href> direto) pra poder mostrar um erro amigavel na
+ * tela em vez do navegador abrir um JSON cru numa aba nova se as datas
+ * forem invalidas.
+ */
+export async function baixarRelatorioXml(inicio: string, fim: string): Promise<void> {
+  const res = await fetch(
+    `/api/relatorios/vendas.xml?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`,
+  )
+  if (!res.ok) {
+    const corpo = (await res.json().catch(() => ({}))) as ErroApi
+    throw new ErroRequisicao(corpo.motivo ?? `Erro ${res.status}`, corpo.codigo)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `relatorio-vendas-${inicio}-a-${fim}.xml`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
