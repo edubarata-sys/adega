@@ -35,11 +35,18 @@ const BASE_DIR = process.pkg ? path.dirname(process.execPath) : __dirname
 const CAMINHO_CONFIG = path.join(BASE_DIR, 'config.env')
 const CAMINHO_WEB = path.join(BASE_DIR, 'web')
 
+// Prioridade de configuracao (da mais baixa pra mais alta): valores padrao
+// (uso local sem nada configurado) < arquivo config.env ao lado do .exe
+// (uso desktop empacotado) < variaveis de ambiente reais (uso em nuvem, ex.
+// Railway -- nao ha como colocar um config.env lá, so env vars no painel).
+// PORT e a convencao usada por Railway/Heroku/etc pra dizer em qual porta
+// escutar; se estiver definida e PORTA_PUBLICA nao vier de outro lugar, usa
+// ela.
 function carregarConfig() {
   const config = {
     DATABASE_URL: 'postgres://adega:adega@localhost:5432/adega',
     SESSION_SECRET: 'troque-esta-chave-por-uma-string-aleatoria-longa',
-    PORTA_PUBLICA: '8080',
+    PORTA_PUBLICA: process.env.PORT ?? '8080',
     PORTA_INTERNA_API: '3000',
     JANELA_APP: 'true',
   }
@@ -53,6 +60,9 @@ function carregarConfig() {
       const valor = semComentario.slice(indice + 1).trim()
       if (chave) config[chave] = valor
     }
+  }
+  for (const chave of Object.keys(config)) {
+    if (process.env[chave] !== undefined) config[chave] = process.env[chave]
   }
   return config
 }
@@ -107,11 +117,16 @@ async function servirEstatico(req, res) {
   }
 }
 
-function repassarParaApi(req, res) {
+// caminhoDestino e explicito (em vez de derivar de req.url aqui dentro)
+// porque o chamador de /health precisa mandar pra API interna sem o
+// prefixo /api, sem precisar criar uma copia rasa de `req` so pra mudar
+// a url -- isso quebrava req.pipe (metodo do prototype de stream, que
+// um spread {...req} nao copia).
+function repassarParaApi(req, res, caminhoDestino) {
   const opcoesProxy = {
     hostname: '127.0.0.1',
     port: PORTA_INTERNA_API,
-    path: req.url.replace(/^\/api/, '') || '/',
+    path: caminhoDestino,
     method: req.method,
     headers: req.headers,
   }
@@ -192,10 +207,10 @@ async function iniciar() {
 
   const servidorPublico = createHttpServer((req, res) => {
     if (req.url?.startsWith('/api')) {
-      repassarParaApi(req, res)
+      repassarParaApi(req, res, req.url.replace(/^\/api/, '') || '/')
     } else if (req.url?.startsWith('/health')) {
-      // healthchecks da API tambem acessiveis direto, sem prefixo /api
-      repassarParaApi({ ...req, url: `/api${req.url}` }, res)
+      // healthcheck (Railway e afins batem aqui direto, sem prefixo /api)
+      repassarParaApi(req, res, req.url)
     } else {
       void servirEstatico(req, res)
     }
@@ -204,8 +219,12 @@ async function iniciar() {
   servidorPublico.listen(PORTA_PUBLICA, () => {
     const url = `http://localhost:${PORTA_PUBLICA}`
     console.log(`Sistema no ar em ${url}`)
-    console.log('Feche esta janela para desligar o sistema.')
-    abrirNavegador(url)
+    // Em nuvem (Railway seta essa variavel automaticamente) nao tem sentido
+    // tentar abrir navegador local -- so faz isso em uso desktop de verdade.
+    if (!process.env.RAILWAY_ENVIRONMENT_NAME) {
+      console.log('Feche esta janela para desligar o sistema.')
+      abrirNavegador(url)
+    }
   })
 }
 
