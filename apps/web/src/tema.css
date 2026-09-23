@@ -614,3 +614,64 @@ body,
     overflow: visible;
   }
 }
+
+/* Etapa "itens" do PDV: destaque do ultimo produto (espaco da foto). */
+.pdv-ultimo-item {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+.pdv-foto-produto {
+  flex: 1 1 auto;
+  min-height: 90px;
+  max-height: 280px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card-alt);
+  border-radius: 12px;
+}
+.pdv-foto-produto svg {
+  height: 70%;
+  max-height: 190px;
+  fill: none;
+  stroke: #5b4a2a;
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+}
+.pdv-ultimo-nome {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.pdv-ultimo-preco {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+.pdv-ultimo-vazio {
+  margin: 0;
+  color: var(--text-muted);
+}
+.pdv-coluna-pagamento > .app-btn-outline {
+  flex: 0 0 auto;
+}
+
+.pdv-linha-status {
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.pdv-linha-status .app-btn-ghost {
+  padding-left: 0;
+}

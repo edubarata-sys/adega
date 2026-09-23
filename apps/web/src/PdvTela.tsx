@@ -85,6 +85,11 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   const [erroBusca, setErroBusca] = useState<string | null>(null)
   const [buscando, setBuscando] = useState(false)
   const [sugestoes, setSugestoes] = useState<ProdutoApi[]>([])
+  // 'itens': passando produtos -- lado direito so mostra o ultimo item e o
+  // total. 'pagamento': depois de "Finalizar compra", lado direito vira o
+  // pagamento. Pedido do cliente 23/09 (menos poluicao enquanto passa itens).
+  const [etapa, setEtapa] = useState<'itens' | 'pagamento'>('itens')
+  const [ultimoItem, setUltimoItem] = useState<ProdutoApi | null>(null)
   const eanRef = useRef<HTMLInputElement>(null)
   const buscandoRef = useRef(false)
   const teclasRef = useRef<number[]>([])
@@ -141,6 +146,14 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
 
   const total = totalCarrinho(carrinho)
   const pago = totalPagamentos(pagamentos)
+  const quantidadeItens = carrinho.reduce((soma, item) => soma + item.quantidade, 0)
+
+  useEffect(() => {
+    if (carrinho.length === 0) setEtapa('itens')
+    setUltimoItem((atual) =>
+      atual && carrinho.some((item) => item.produtoId === atual.id) ? atual : null,
+    )
+  }, [carrinho])
   const faltaPagar = Math.max(total - pago, 0)
 
   // Campo de valor ja vem com o que falta pagar (subtotal na primeira vez,
@@ -152,6 +165,7 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   }, [faltaPagar])
 
   function adicionarProduto(produto: ProdutoApi) {
+    setUltimoItem(produto)
     setCarrinho((atual) =>
       adicionarAoCarrinho(atual, {
         produtoId: produto.id,
@@ -280,6 +294,8 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   }
 
   function novaVenda() {
+    setEtapa('itens')
+    setUltimoItem(null)
     valorEditadoRef.current = false
     setCarrinho([])
     setPagamentos([])
@@ -490,143 +506,202 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
         </div>
 
         <div className="pdv-coluna pdv-coluna-pagamento">
-          <div className="app-card pdv-card-compacto">
-            <p className="app-total-label">Total da venda</p>
-            <p className="app-total" style={{ margin: 0 }}>
-              {formatarBRL(total)}
-            </p>
-            {carrinho.length > 0 && (
-              <p style={{ margin: '6px 0 0' }}>
-                {faltaPagar > 0 ? (
+          {etapa === 'itens' ? (
+            <>
+              <div className="app-card pdv-card-compacto pdv-ultimo-item">
+                {/* Espaco da foto do produto -- por enquanto um desenho neutro
+                    de garrafa; a foto de verdade entra aqui quando existir. */}
+                <div className="pdv-foto-produto" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M10 2h4v3.2l1.4 2.3c.4.6.6 1.3.6 2V21a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V9.5c0-.7.2-1.4.6-2L10 5.2V2z" />
+                    <rect x="9.3" y="12" width="5.4" height="5" rx=".6" />
+                  </svg>
+                </div>
+                {ultimoItem ? (
                   <>
-                    Falta pagar:{' '}
-                    <strong style={{ color: 'var(--gold)' }}>
-                      {formatarBRL(centavos(faltaPagar))}
-                    </strong>
+                    <p className="pdv-ultimo-nome">{ultimoItem.descricao}</p>
+                    <p className="pdv-ultimo-preco">
+                      {formatarBRL(centavos(ultimoItem.precoVenda))}
+                    </p>
                   </>
                 ) : (
-                  <strong style={{ color: 'var(--green)' }}>Pago</strong>
+                  <p className="pdv-ultimo-vazio">Passe a pistola no primeiro produto</p>
                 )}
-              </p>
-            )}
-          </div>
+              </div>
 
-          <div className="app-card pdv-card-compacto pdv-pagamento">
-            <h2>Pagamento</h2>
-            <div className="app-pill-group" style={{ marginBottom: 12 }}>
-              {FORMAS_PAGAMENTO.map((forma) => (
-                <button
-                  key={forma}
-                  type="button"
-                  className="app-pill-btn"
-                  aria-pressed={formaPagamento === forma}
-                  onClick={() => {
-                    setFormaPagamento(forma)
-                    setTerminalApelido(null)
-                  }}
-                >
-                  {forma}
-                </button>
-              ))}
-            </div>
+              <div className="app-card pdv-card-compacto">
+                <p className="app-total-label">Total da venda</p>
+                <p className="app-total" style={{ margin: 0 }}>
+                  {formatarBRL(total)}
+                </p>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', textAlign: 'right' }}>
+                  {quantidadeItens} {quantidadeItens === 1 ? 'item' : 'itens'}
+                </p>
+              </div>
 
-            {ehPagamentoDeCartao && (
-              <div style={{ marginBottom: 12 }}>
-                <span className="app-label">Maquininha</span>
-                <div className="app-pill-group">
-                  {['Maquininha 1', 'Maquininha 2'].map((apelido) => (
+              <button
+                type="button"
+                disabled={carrinho.length === 0}
+                onClick={() => setEtapa('pagamento')}
+                className="app-btn app-btn-grande"
+              >
+                Finalizar compra
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="app-card pdv-card-compacto">
+                <p className="app-total-label">Total da venda</p>
+                <p className="app-total" style={{ margin: 0 }}>
+                  {formatarBRL(total)}
+                </p>
+                <div className="pdv-linha-status">
+                  <button type="button" className="app-btn-ghost" onClick={() => setEtapa('itens')}>
+                    ← Voltar aos itens
+                  </button>
+                  {faltaPagar > 0 ? (
+                    <span>
+                      Falta pagar:{' '}
+                      <strong style={{ color: 'var(--gold)' }}>
+                        {formatarBRL(centavos(faltaPagar))}
+                      </strong>
+                    </span>
+                  ) : (
+                    <strong style={{ color: 'var(--green)' }}>Pago</strong>
+                  )}
+                </div>
+              </div>
+
+              <div className="app-card pdv-card-compacto pdv-pagamento">
+                <h2>Pagamento</h2>
+                <div className="app-pill-group" style={{ marginBottom: 12 }}>
+                  {FORMAS_PAGAMENTO.map((forma) => (
                     <button
-                      key={apelido}
+                      key={forma}
                       type="button"
                       className="app-pill-btn"
-                      aria-pressed={terminalApelido === apelido}
-                      onClick={() => setTerminalApelido(apelido)}
+                      aria-pressed={formaPagamento === forma}
+                      onClick={() => {
+                        setFormaPagamento(forma)
+                        setTerminalApelido(null)
+                      }}
                     >
-                      {apelido}
+                      {forma}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
 
-            <div style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap' }}>
-              <label style={{ flex: 1, minWidth: 110 }}>
-                <span className="app-label">Valor (R$) -- baixe pra dividir</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={valorPagamentoTexto}
-                  onChange={(e) => {
-                    valorEditadoRef.current = true
-                    setValorPagamentoTexto(e.target.value)
-                  }}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      adicionarPagamento()
-                    }
-                  }}
-                  className="app-input"
-                />
-              </label>
-              <button type="button" onClick={adicionarPagamento} className="app-btn">
-                Adicionar pagamento
-              </button>
-            </div>
-            {erroPagamento && <p className="app-msg-erro">{erroPagamento}</p>}
+                {ehPagamentoDeCartao && (
+                  <div style={{ marginBottom: 12 }}>
+                    <span className="app-label">Maquininha</span>
+                    <div className="app-pill-group">
+                      {['Maquininha 1', 'Maquininha 2'].map((apelido) => (
+                        <button
+                          key={apelido}
+                          type="button"
+                          className="app-pill-btn"
+                          aria-pressed={terminalApelido === apelido}
+                          onClick={() => setTerminalApelido(apelido)}
+                        >
+                          {apelido}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            {pagamentos.length > 0 && (
-              <ul style={{ listStyle: 'none', padding: 0, marginTop: 12, display: 'grid', gap: 6 }}>
-                {pagamentos.map((p, indice) => (
-                  <li
-                    key={indice}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap' }}>
+                  <label style={{ flex: 1, minWidth: 110 }}>
+                    <span className="app-label">Valor (R$) -- baixe pra dividir</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={valorPagamentoTexto}
+                      onChange={(e) => {
+                        valorEditadoRef.current = true
+                        setValorPagamentoTexto(e.target.value)
+                      }}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          adicionarPagamento()
+                        }
+                      }}
+                      className="app-input"
+                    />
+                  </label>
+                  <button type="button" onClick={adicionarPagamento} className="app-btn">
+                    Adicionar pagamento
+                  </button>
+                </div>
+                {erroPagamento && <p className="app-msg-erro">{erroPagamento}</p>}
+
+                {pagamentos.length > 0 && (
+                  <ul
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      background: 'var(--bg-card-alt)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      padding: '8px 12px',
+                      listStyle: 'none',
+                      padding: 0,
+                      marginTop: 12,
+                      display: 'grid',
+                      gap: 6,
                     }}
                   >
-                    <span>
-                      {p.forma}
-                      {p.terminalApelido ? ` (${p.terminalApelido})` : ''}: {formatarBRL(p.valor)}
+                    {pagamentos.map((p, indice) => (
+                      <li
+                        key={indice}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          background: 'var(--bg-card-alt)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                        }}
+                      >
+                        <span>
+                          {p.forma}
+                          {p.terminalApelido ? ` (${p.terminalApelido})` : ''}:{' '}
+                          {formatarBRL(p.valor)}
+                        </span>
+                        <button
+                          type="button"
+                          className="app-btn-ghost"
+                          onClick={() => removerPagamento(indice)}
+                        >
+                          remover
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p style={{ marginTop: 12 }}>
+                  Pago: <strong>{formatarBRL(pago)}</strong>{' '}
+                  {pago > total && (
+                    <span style={{ color: 'var(--green)' }}>
+                      (troco estimado: {formatarBRL(centavos(pago - total))})
                     </span>
-                    <button
-                      type="button"
-                      className="app-btn-ghost"
-                      onClick={() => removerPagamento(indice)}
-                    >
-                      remover
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p style={{ marginTop: 12 }}>
-              Pago: <strong>{formatarBRL(pago)}</strong>{' '}
-              {pago > total && (
-                <span style={{ color: 'var(--green)' }}>
-                  (troco estimado: {formatarBRL(centavos(pago - total))})
-                </span>
-              )}
-            </p>
-          </div>
+                  )}
+                </p>
+              </div>
 
-          {erroVenda && <p className="app-msg-erro">{erroVenda}</p>}
-          <button
-            type="button"
-            disabled={
-              carrinho.length === 0 || pagamentos.length === 0 || faltaPagar > 0 || enviandoVenda
-            }
-            onClick={() => void confirmarVenda()}
-            className="app-btn app-btn-grande"
-          >
-            {enviandoVenda ? 'Registrando...' : 'Confirmar venda'}
-          </button>
+              {erroVenda && <p className="app-msg-erro">{erroVenda}</p>}
+              <button
+                type="button"
+                disabled={
+                  carrinho.length === 0 ||
+                  pagamentos.length === 0 ||
+                  faltaPagar > 0 ||
+                  enviandoVenda
+                }
+                onClick={() => void confirmarVenda()}
+                className="app-btn app-btn-grande"
+              >
+                {enviandoVenda ? 'Registrando...' : 'Confirmar venda'}
+              </button>
+            </>
+          )}
         </div>
       </main>
     </div>
