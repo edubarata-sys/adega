@@ -431,7 +431,9 @@ function AbaEstoquePorVoz() {
         delta,
         'Registrado por voz -- painel mobile',
       )
-      setMensagemOk(`Feito: ${produto.descricao} agora tem ${produto.estoqueAtual ?? '?'} em estoque.`)
+      setMensagemOk(
+        `Feito: ${produto.descricao} agora tem ${produto.estoqueAtual ?? '?'} em estoque.`,
+      )
       setTextoComando('')
       setQuantidadeTexto('')
       setTermoBusca('')
