@@ -347,3 +347,70 @@ describe('POST /produtos/:id/estoque', () => {
     expect(res.statusCode).toBe(404)
   })
 })
+
+describe('GET /produtos/ean/:ean -- variantes UPC-A / EAN-13', () => {
+  it('acha produto cadastrado com UPC-A (12 digitos) quando a pistola le EAN-13 com zero na frente', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    const criado = await app.inject({
+      method: 'POST',
+      url: '/produtos',
+      cookies,
+      payload: { descricao: 'Whisky Importado 1L', ean: '082184000328', precoVenda: 15990 },
+    })
+    expect(criado.statusCode).toBe(201)
+
+    const res = await app.inject({ method: 'GET', url: '/produtos/ean/0082184000328', cookies })
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as { produto: { descricao: string } }).produto.descricao).toBe(
+      'Whisky Importado 1L',
+    )
+  })
+})
+
+describe('GET /produtos/eans', () => {
+  it('devolve so EANs de produtos ativos, sem nulos', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    const ativo = await app.inject({
+      method: 'POST',
+      url: '/produtos',
+      cookies,
+      payload: { descricao: 'Ativo com EAN', ean: '7891000999991', precoVenda: 100 },
+    })
+    await app.inject({
+      method: 'POST',
+      url: '/produtos',
+      cookies,
+      payload: { descricao: 'Sem EAN (granel)', precoVenda: 100 },
+    })
+    const inativo = await app.inject({
+      method: 'POST',
+      url: '/produtos',
+      cookies,
+      payload: { descricao: 'Vai ser desativado', ean: '7891000999992', precoVenda: 100 },
+    })
+    const idInativo = (inativo.json() as { produto: { id: string } }).produto.id
+    await app.inject({
+      method: 'PUT',
+      url: `/produtos/${idInativo}`,
+      cookies,
+      payload: { descricao: 'Vai ser desativado', precoVenda: 100, ativo: false },
+    })
+    expect(ativo.statusCode).toBe(201)
+
+    const res = await app.inject({ method: 'GET', url: '/produtos/eans', cookies })
+    expect(res.statusCode).toBe(200)
+    const { eans } = res.json() as { eans: string[] }
+    expect(eans).toContain('7891000999991')
+    expect(eans).not.toContain('7891000999992')
+    expect(eans.every((e) => typeof e === 'string' && e.length > 0)).toBe(true)
+  })
+
+  it('recusa sem autenticacao', async () => {
+    const res = await novoApp().inject({ method: 'GET', url: '/produtos/eans' })
+    expect(res.statusCode).toBe(401)
+  })
+})

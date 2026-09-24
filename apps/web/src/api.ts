@@ -109,6 +109,10 @@ export function buscarProdutoPorEan(ean: string) {
   return requisitar<{ produto: ProdutoApi }>(`/produtos/ean/${encodeURIComponent(ean)}`)
 }
 
+export function listarEansAtivos() {
+  return requisitar<{ eans: string[] }>('/produtos/eans')
+}
+
 export function buscarProdutosPorDescricao(termo: string) {
   return requisitar<{ produtos: ProdutoApi[] }>(`/produtos?q=${encodeURIComponent(termo)}`)
 }

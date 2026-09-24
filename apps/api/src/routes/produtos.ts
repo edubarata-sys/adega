@@ -1,5 +1,5 @@
 import { aplicarMovimentoEstoque, schema } from '@adega/db'
-import { and, desc, eq, ilike, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNotNull, ne } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { DependenciasApp } from '../dependencias'
@@ -193,6 +193,19 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
       return reply.send({ produtos })
     },
   )
+
+  /**
+   * Lista enxuta so com os EANs dos produtos ATIVOS -- usada pelo PDV pra
+   * montar, em segundo plano, o cache de fotos dos produtos (ver
+   * apps/web/src/fotoProduto.ts). Sem limite de 200: sao so strings curtas.
+   */
+  app.get('/produtos/eans', { preHandler: requireAuth }, async () => {
+    const linhas = await deps.db
+      .select({ ean: schema.produtos.ean })
+      .from(schema.produtos)
+      .where(and(eq(schema.produtos.ativo, true), isNotNull(schema.produtos.ean)))
+    return { eans: linhas.map((l) => l.ean).filter((e): e is string => Boolean(e)) }
+  })
 
   app.get<{ Params: { id: string } }>(
     '/produtos/:id',

@@ -6,6 +6,7 @@ import {
   buscarProdutosPorDescricao,
   buscarRecibo,
   ErroRequisicao,
+  listarEansAtivos,
   registrarVenda,
   type ProdutoApi,
   type ReciboApi,
@@ -21,6 +22,7 @@ import {
   type ItemCarrinho,
   type PagamentoInformado,
 } from './carrinho'
+import { aquecerCacheDeFotos, buscarFotoProduto } from './fotoProduto'
 import { TopoApp } from './TopoApp'
 
 interface Props {
@@ -90,6 +92,40 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   // pagamento. Pedido do cliente 23/09 (menos poluicao enquanto passa itens).
   const [etapa, setEtapa] = useState<'itens' | 'pagamento'>('itens')
   const [ultimoItem, setUltimoItem] = useState<ProdutoApi | null>(null)
+  const [fotoUltimo, setFotoUltimo] = useState<string | null>(null)
+
+  // Foto do ultimo item (Open Food Facts, ver fotoProduto.ts). Nunca trava a
+  // venda: o item ja entrou no carrinho; a foto aparece se e quando chegar.
+  useEffect(() => {
+    setFotoUltimo(null)
+    if (!ultimoItem) return
+    let cancelado = false
+    void buscarFotoProduto(ultimoItem.ean).then((url) => {
+      if (!cancelado) setFotoUltimo(url)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [ultimoItem])
+
+  // Banco de fotos: em segundo plano, 1 consulta a cada ~0,7s, so pros
+  // codigos que ainda nao estao guardados neste computador.
+  useEffect(() => {
+    let parar: (() => void) | null = null
+    let cancelado = false
+    void listarEansAtivos().then(
+      ({ eans }) => {
+        if (!cancelado) parar = aquecerCacheDeFotos(eans)
+      },
+      () => {
+        // Sem lista, sem aquecimento -- a foto ainda e buscada item a item.
+      },
+    )
+    return () => {
+      cancelado = true
+      parar?.()
+    }
+  }, [])
   const eanRef = useRef<HTMLInputElement>(null)
   const buscandoRef = useRef(false)
   const teclasRef = useRef<number[]>([])
@@ -511,11 +547,20 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
               <div className="app-card pdv-card-compacto pdv-ultimo-item">
                 {/* Espaco da foto do produto -- por enquanto um desenho neutro
                     de garrafa; a foto de verdade entra aqui quando existir. */}
-                <div className="pdv-foto-produto" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M10 2h4v3.2l1.4 2.3c.4.6.6 1.3.6 2V21a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V9.5c0-.7.2-1.4.6-2L10 5.2V2z" />
-                    <rect x="9.3" y="12" width="5.4" height="5" rx=".6" />
-                  </svg>
+                <div className="pdv-foto-produto">
+                  {fotoUltimo ? (
+                    <img
+                      src={fotoUltimo}
+                      alt={ultimoItem?.descricao ?? ''}
+                      onError={() => setFotoUltimo(null)}
+                    />
+                  ) : (
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M10 2h4v3.2l1.4 2.3c.4.6.6 1.3.6 2V21a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V9.5c0-.7.2-1.4.6-2L10 5.2V2z" />
+                      <rect x="9.3" y="12" width="5.4" height="5" rx=".6" />
+                    </svg>
+                  )}
+                  {fotoUltimo && <span className="pdv-foto-credito">foto: Open Food Facts</span>}
                 </div>
                 {ultimoItem ? (
                   <>
