@@ -1,8 +1,9 @@
 import { formatarBRL, centavos } from '@adega/core'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ajustarEstoque,
   atualizarProduto,
+  buscarProdutoPorEan,
   criarCategoria,
   criarProduto,
   ErroRequisicao,
@@ -16,7 +17,12 @@ import { TopoApp } from './TopoApp'
 
 interface Props {
   readonly aoVoltar: () => void
+  /** Codigo lido no caixa que nao existe: abre "Novo produto" ja com ele. */
+  readonly eanInicial?: string
 }
+
+/** So digitos, 8 a 14: formato de codigo de barras (mesma regra da API). */
+const PARECE_EAN = /^\d{8,14}$/
 
 function reaisParaCentavos(texto: string): number {
   const normalizado = texto.trim().replace(',', '.')
@@ -61,7 +67,7 @@ const FORMULARIO_VAZIO: FormularioProduto = {
  * a Fase 1 (so tinha baixa automatica na venda, nenhuma forma de cadastrar
  * ou editar um produto pela interface).
  */
-export function ProdutosTela({ aoVoltar }: Props) {
+export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
   const [termo, setTermo] = useState('')
   const [produtos, setProdutos] = useState<ProdutoCadastroApi[]>([])
   const [carregando, setCarregando] = useState(false)
@@ -72,6 +78,9 @@ export function ProdutosTela({ aoVoltar }: Props) {
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [form, setForm] = useState<FormularioProduto>(FORMULARIO_VAZIO)
+  const campoEanRef = useRef<HTMLInputElement>(null)
+  const campoDescricaoRef = useRef<HTMLInputElement>(null)
+  const timerBuscaRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [erroForm, setErroForm] = useState<string | null>(null)
   const [mensagemOk, setMensagemOk] = useState<string | null>(null)
@@ -107,13 +116,49 @@ export function ProdutosTela({ aoVoltar }: Props) {
   useEffect(() => {
     void carregarProdutos()
     void carregarCategorias()
+    if (eanInicial) iniciarNovo(eanInicial)
   }, [])
 
-  function iniciarNovo() {
+  /**
+   * Sem codigo: cursor no campo do codigo de barras (clicou "+ Novo", ja
+   * passa a pistola). Com codigo (veio da busca ou do caixa): codigo ja
+   * preenchido e cursor na descricao.
+   */
+  function iniciarNovo(ean?: string) {
     setEditandoId(null)
-    setForm(FORMULARIO_VAZIO)
+    setForm({ ...FORMULARIO_VAZIO, ean: ean ?? '' })
     setErroForm(null)
-    setMensagemOk(null)
+    setMensagemOk(
+      ean ? `Codigo ${ean} nao esta cadastrado. Preencha os dados do produto novo.` : null,
+    )
+    setTimeout(() => (ean ? campoDescricaoRef : campoEanRef).current?.focus(), 0)
+  }
+
+  /**
+   * Pistola na busca: codigo so com digitos procura pelo codigo de barras.
+   * Achou -> mostra o produto na lista; nao achou -> abre "Novo produto" ja
+   * com o codigo. Texto com letras continua buscando pela descricao.
+   */
+  async function buscarTermo(textoBruto: string) {
+    if (timerBuscaRef.current) clearTimeout(timerBuscaRef.current)
+    const texto = textoBruto.trim()
+    if (!PARECE_EAN.test(texto)) {
+      void carregarProdutos(texto)
+      return
+    }
+    setTermo('')
+    setErroLista(null)
+    try {
+      const { produto } = await buscarProdutoPorEan(texto)
+      setTermo(produto.descricao)
+      void carregarProdutos(produto.descricao)
+    } catch (e) {
+      if (e instanceof ErroRequisicao && e.status === 404) {
+        iniciarNovo(texto)
+        return
+      }
+      setErroLista(e instanceof ErroRequisicao ? e.message : 'Falha ao buscar o codigo.')
+    }
   }
 
   function selecionarParaEditar(produto: ProdutoCadastroApi) {
@@ -256,11 +301,22 @@ export function ProdutosTela({ aoVoltar }: Props) {
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <input
                 type="text"
-                placeholder="Buscar por descricao"
+                placeholder="Buscar por descricao ou passar a pistola"
                 value={termo}
-                onChange={(e) => setTermo(e.target.value)}
+                onChange={(e) => {
+                  const valor = e.target.value
+                  setTermo(valor)
+                  // Pistola sem Enter: rajada de digitos que para -> busca sozinha.
+                  if (timerBuscaRef.current) clearTimeout(timerBuscaRef.current)
+                  if (PARECE_EAN.test(valor.trim())) {
+                    timerBuscaRef.current = setTimeout(() => void buscarTermo(valor), 400)
+                  }
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void carregarProdutos(termo)
+                  if (e.key === 'Enter' || (e.key === 'Tab' && PARECE_EAN.test(termo.trim()))) {
+                    e.preventDefault()
+                    void buscarTermo(termo)
+                  }
                 }}
                 className="app-input"
                 style={{ flex: 1 }}
@@ -268,11 +324,11 @@ export function ProdutosTela({ aoVoltar }: Props) {
               <button
                 type="button"
                 className="app-btn-outline"
-                onClick={() => void carregarProdutos(termo)}
+                onClick={() => void buscarTermo(termo)}
               >
                 Buscar
               </button>
-              <button type="button" className="app-btn" onClick={iniciarNovo}>
+              <button type="button" className="app-btn" onClick={() => iniciarNovo()}>
                 + Novo
               </button>
             </div>
@@ -339,8 +395,22 @@ export function ProdutosTela({ aoVoltar }: Props) {
 
             <div style={{ display: 'grid', gap: 12 }}>
               <label>
+                <span className="app-label">Codigo de barras (EAN, opcional)</span>
+                <input
+                  ref={campoEanRef}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Passe a pistola aqui"
+                  value={form.ean}
+                  onChange={(e) => setForm((f) => ({ ...f, ean: e.target.value }))}
+                  className="app-input"
+                />
+              </label>
+
+              <label>
                 <span className="app-label">Descricao *</span>
                 <input
+                  ref={campoDescricaoRef}
                   type="text"
                   value={form.descricao}
                   onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
@@ -354,16 +424,6 @@ export function ProdutosTela({ aoVoltar }: Props) {
                   type="text"
                   value={form.descricaoPdv}
                   onChange={(e) => setForm((f) => ({ ...f, descricaoPdv: e.target.value }))}
-                  className="app-input"
-                />
-              </label>
-
-              <label>
-                <span className="app-label">EAN (codigo de barras, opcional)</span>
-                <input
-                  type="text"
-                  value={form.ean}
-                  onChange={(e) => setForm((f) => ({ ...f, ean: e.target.value }))}
                   className="app-input"
                 />
               </label>
@@ -492,7 +552,7 @@ export function ProdutosTela({ aoVoltar }: Props) {
                   {editandoId ? 'Salvar alteracoes' : 'Criar produto'}
                 </button>
                 {editandoId && (
-                  <button type="button" className="app-btn-ghost" onClick={iniciarNovo}>
+                  <button type="button" className="app-btn-ghost" onClick={() => iniciarNovo()}>
                     Cancelar edicao
                   </button>
                 )}

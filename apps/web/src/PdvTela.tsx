@@ -28,7 +28,8 @@ import { TopoApp } from './TopoApp'
 interface Props {
   readonly operadorNome: string
   readonly aoQuererFecharCaixa: () => void
-  readonly aoQuererGerenciarProdutos: () => void
+  /** Com codigo: abre o cadastro ja em "Novo produto" com esse codigo. */
+  readonly aoQuererGerenciarProdutos: (eanInicial?: string) => void
 }
 
 /**
@@ -85,6 +86,7 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [eanTexto, setEanTexto] = useState('')
   const [erroBusca, setErroBusca] = useState<string | null>(null)
+  const [eanNaoCadastrado, setEanNaoCadastrado] = useState<string | null>(null)
   const [buscando, setBuscando] = useState(false)
   const [sugestoes, setSugestoes] = useState<ProdutoApi[]>([])
   // 'itens': passando produtos -- lado direito so mostra o ultimo item e o
@@ -229,6 +231,7 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
     buscandoRef.current = true
     setBuscando(true)
     setErroBusca(null)
+    setEanNaoCadastrado(null)
     setSugestoes([])
     setEanTexto('')
     try {
@@ -241,6 +244,7 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
             setErroBusca(
               `Codigo ${texto} nao esta cadastrado em nenhum produto. Digite o nome do produto e aperte Enter para buscar.`,
             )
+            setEanNaoCadastrado(texto)
             return
           }
           throw e
@@ -436,7 +440,11 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
     <div className="app pdv-tela">
       <TopoApp titulo="Ponto de venda">
         <span>{operadorNome}</span>
-        <button type="button" className="app-btn-outline" onClick={aoQuererGerenciarProdutos}>
+        <button
+          type="button"
+          className="app-btn-outline"
+          onClick={() => aoQuererGerenciarProdutos()}
+        >
           Produtos
         </button>
         <button type="button" className="app-btn-outline" onClick={aoQuererFecharCaixa}>
@@ -463,6 +471,16 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
             />
             {buscando && <p className="app-label">Buscando...</p>}
             {erroBusca && <p className="app-msg-erro">{erroBusca}</p>}
+            {erroBusca && eanNaoCadastrado && (
+              <button
+                type="button"
+                className="app-btn-outline"
+                style={{ marginTop: 6 }}
+                onClick={() => aoQuererGerenciarProdutos(eanNaoCadastrado)}
+              >
+                Cadastrar produto com este codigo
+              </button>
+            )}
             {sugestoes.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                 {sugestoes.map((p) => (
