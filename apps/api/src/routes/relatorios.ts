@@ -1,4 +1,10 @@
-import { centavos, gerarXmlRelatorioVendas, type VendaRelatorio } from '@adega/core'
+import {
+  centavos,
+  fimDoDiaLoja,
+  gerarXmlRelatorioVendas,
+  inicioDoDiaLoja,
+  type VendaRelatorio,
+} from '@adega/core'
 import { schema } from '@adega/db'
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
@@ -20,14 +26,6 @@ const QuerySchema = z.object({
   inicio: z.string().regex(RE_DATA, 'inicio precisa ser AAAA-MM-DD'),
   fim: z.string().regex(RE_DATA, 'fim precisa ser AAAA-MM-DD'),
 })
-
-/** `fim` e inclusivo o dia inteiro (23:59:59.999), nao so a meia-noite --
- * senao um pedido de "01 a 30" perderia as vendas do proprio dia 30. */
-function finalDoDia(dataIso: string): Date {
-  const data = new Date(`${dataIso}T00:00:00.000Z`)
-  data.setUTCHours(23, 59, 59, 999)
-  return data
-}
 
 async function buscarVendasDoPeriodo(
   deps: DependenciasApp,
@@ -94,8 +92,11 @@ export function registrarRotasRelatorios(app: FastifyInstance, deps: Dependencia
         })
       }
       const { inicio, fim } = parse.data
-      const periodoInicio = new Date(`${inicio}T00:00:00.000Z`)
-      const periodoFim = finalDoDia(fim)
+      // Dias no horario da LOJA (Brasilia), nao do servidor (UTC): antes,
+      // o "dia 24" ia das 21h do dia 23 as 20h59 do dia 24 e as vendas da
+      // noite caiam no dia seguinte. `fim` e inclusivo o dia inteiro.
+      const periodoInicio = inicioDoDiaLoja(inicio)
+      const periodoFim = fimDoDiaLoja(fim)
       if (periodoFim < periodoInicio) {
         return reply
           .code(400)

@@ -1,3 +1,4 @@
+import { formatarDataHoraLoja } from './fuso-loja'
 import type { Centavos } from './dinheiro'
 import { formatarBRL } from './dinheiro'
 
@@ -104,7 +105,7 @@ export function gerarLinhasRecibo(dados: DadosRecibo): string[] {
   linhas.push(centralizar(AVISO_SEM_VALOR_FISCAL, largura))
   linhas.push(linhaSeparadora(largura))
   linhas.push(`Venda: ${dados.numero ?? dados.vendaId.slice(0, 8)}`)
-  linhas.push(`Data: ${dados.ocorridoEm.toISOString().replace('T', ' ').slice(0, 19)}`)
+  linhas.push(`Data: ${formatarDataHoraLoja(dados.ocorridoEm)}`)
   linhas.push(`Operador: ${dados.operadorNome}`)
   linhas.push(linhaSeparadora(largura))
 

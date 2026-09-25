@@ -1,4 +1,4 @@
-import { centavos, formatarBRL } from '@adega/core'
+import { centavos, dataLojaIso, formatarBRL } from '@adega/core'
 import { useEffect, useState } from 'react'
 import {
   ajustarEstoque,
@@ -129,8 +129,10 @@ function AbaCaixa() {
   )
 }
 
+/** Hoje no calendario da loja -- `toISOString()` e UTC e, depois das 21h,
+ * ja devolvia o dia seguinte (relatorio "de hoje" vinha vazio). */
 function hojeIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  return dataLojaIso()
 }
 
 function AbaRelatorio() {

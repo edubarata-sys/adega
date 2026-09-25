@@ -1,3 +1,4 @@
+import { dataLojaIso } from '@adega/core'
 import { SEED_CREDENCIAIS_DEV, SEED_IDS, seedDados } from '@adega/db'
 import { bancoDeTeste, limparTabelas } from '@adega/db/teste'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -31,11 +32,11 @@ async function cookieAdmin(app: ReturnType<typeof novoApp>) {
   return { adega_sessao: cookie }
 }
 
-/** Hoje em UTC, formato AAAA-MM-DD -- as vendas de teste nascem com
- * `ocorridoEm = new Date()` no servidor, entao o periodo de busca precisa
- * cobrir o dia de hoje pra nao depender de congelar o relogio. */
+/** Hoje no calendario da LOJA (Brasilia), AAAA-MM-DD -- as vendas de
+ * teste nascem com `ocorridoEm = new Date()` no servidor, e o relatorio
+ * corta os dias no horario da loja; usar UTC aqui quebrava o teste a noite. */
 function hojeIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  return dataLojaIso()
 }
 
 describe('GET /relatorios/vendas.xml', () => {
