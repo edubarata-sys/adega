@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AbrirCaixaTela } from './AbrirCaixaTela'
-import { caixaAtual, eu, type SessaoCaixaApi, type UsuarioSessao } from './api'
+import { caixaAtual, eu, logout, type SessaoCaixaApi, type UsuarioSessao } from './api'
 import { FecharCaixaTela } from './FecharCaixaTela'
 import { LoginTela } from './LoginTela'
 import { PainelMobileTela } from './PainelMobileTela'
@@ -185,6 +185,11 @@ function AppPdv() {
     <PdvTela
       operadorNome={estado.usuario.nome}
       aoQuererFecharCaixa={() => setEstado({ fase: 'fechando-caixa', usuario: estado.usuario })}
+      aoSair={() => {
+        void logout()
+          .catch(() => {})
+          .finally(() => setEstado({ fase: 'login' }))
+      }}
       aoQuererEntradaNota={
         estado.usuario.perfil === 'admin'
           ? () =>

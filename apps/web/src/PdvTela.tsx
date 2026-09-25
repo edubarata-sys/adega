@@ -28,6 +28,8 @@ import { TopoApp } from './TopoApp'
 interface Props {
   readonly operadorNome: string
   readonly aoQuererFecharCaixa: () => void
+  /** Sai do usuario atual (volta pro login) sem fechar o caixa. */
+  readonly aoSair: () => void
   /** So vem preenchido pra administrador (relatorio mostra custo e lucro). */
   readonly aoQuererRelatorios?: () => void
   /** So admin: entrada de mercadoria por foto da nota. */
@@ -89,6 +91,7 @@ function reaisParaCentavos(texto: string): number {
 export function PdvTela({
   operadorNome,
   aoQuererFecharCaixa,
+  aoSair,
   aoQuererRelatorios,
   aoQuererEntradaNota,
   aoQuererGerenciarProdutos,
@@ -515,6 +518,14 @@ export function PdvTela({
         )}
         <button type="button" className="app-btn-outline" onClick={aoQuererFecharCaixa}>
           Fechar caixa
+        </button>
+        <button
+          type="button"
+          className="app-btn-ghost"
+          title="Trocar de usuario (o caixa continua aberto)"
+          onClick={aoSair}
+        >
+          Sair
         </button>
       </TopoApp>
 
