@@ -4,6 +4,7 @@ import { caixaAtual, eu, type SessaoCaixaApi, type UsuarioSessao } from './api'
 import { FecharCaixaTela } from './FecharCaixaTela'
 import { LoginTela } from './LoginTela'
 import { PainelMobileTela } from './PainelMobileTela'
+import { RelatoriosTela } from './RelatoriosTela'
 import { PdvTela } from './PdvTela'
 import { ProdutosTela } from './ProdutosTela'
 
@@ -13,6 +14,7 @@ type Estado =
   | { fase: 'abrindo-caixa'; usuario: UsuarioSessao }
   | { fase: 'pdv'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
   | { fase: 'fechando-caixa'; usuario: UsuarioSessao }
+  | { fase: 'relatorios'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
   | { fase: 'produtos'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi; eanInicial?: string }
 
 /**
@@ -146,6 +148,16 @@ function AppPdv() {
     )
   }
 
+  if (estado.fase === 'relatorios') {
+    return (
+      <RelatoriosTela
+        aoVoltar={() =>
+          setEstado({ fase: 'pdv', usuario: estado.usuario, sessaoCaixa: estado.sessaoCaixa })
+        }
+      />
+    )
+  }
+
   if (estado.fase === 'produtos') {
     return (
       <ProdutosTela
@@ -161,6 +173,16 @@ function AppPdv() {
     <PdvTela
       operadorNome={estado.usuario.nome}
       aoQuererFecharCaixa={() => setEstado({ fase: 'fechando-caixa', usuario: estado.usuario })}
+      aoQuererRelatorios={
+        estado.usuario.perfil === 'admin'
+          ? () =>
+              setEstado({
+                fase: 'relatorios',
+                usuario: estado.usuario,
+                sessaoCaixa: estado.sessaoCaixa,
+              })
+          : undefined
+      }
       aoQuererGerenciarProdutos={(eanInicial) =>
         setEstado({
           fase: 'produtos',

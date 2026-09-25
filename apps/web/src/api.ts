@@ -272,3 +272,46 @@ export async function baixarRelatorioXml(inicio: string, fim: string): Promise<v
   a.remove()
   URL.revokeObjectURL(url)
 }
+
+export interface RelatorioResumoApi {
+  readonly inicio: string
+  readonly fim: string
+  readonly cadastro: { readonly produtosAtivos: number; readonly produtosAtivosSemCusto: number }
+  readonly resumo: {
+    readonly totalVendido: number
+    readonly quantidadeVendas: number
+    readonly ticketMedio: number
+    readonly faturamentoComCusto: number
+    readonly custoTotal: number
+    readonly lucro: number
+    readonly margem: number | null
+    readonly faturamentoSemCusto: number
+    readonly produtosSemCusto: number
+  }
+  readonly porDia: readonly {
+    readonly data: string
+    readonly vendas: number
+    readonly total: number
+  }[]
+  readonly porPagamento: readonly {
+    readonly forma: string
+    readonly maquininha: string | null
+    readonly valor: number
+    readonly quantidade: number
+  }[]
+  readonly produtos: readonly {
+    readonly produtoId: string
+    readonly descricao: string
+    readonly quantidade: number
+    readonly faturamento: number
+    readonly custo: number | null
+    readonly lucro: number | null
+    readonly margem: number | null
+  }[]
+}
+
+export function buscarRelatorioResumo(inicio: string, fim: string) {
+  return requisitar<RelatorioResumoApi>(
+    `/relatorios/resumo?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`,
+  )
+}

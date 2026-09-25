@@ -28,6 +28,8 @@ import { TopoApp } from './TopoApp'
 interface Props {
   readonly operadorNome: string
   readonly aoQuererFecharCaixa: () => void
+  /** So vem preenchido pra administrador (relatorio mostra custo e lucro). */
+  readonly aoQuererRelatorios?: () => void
   /** Com codigo: abre o cadastro ja em "Novo produto" com esse codigo. */
   readonly aoQuererGerenciarProdutos: (eanInicial?: string) => void
 }
@@ -82,7 +84,12 @@ function reaisParaCentavos(texto: string): number {
  * comporta como teclado (digita os digitos e um Enter no final), entao nao
  * precisa de nenhum SDK -- so um input de texto que reage a Enter.
  */
-export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarProdutos }: Props) {
+export function PdvTela({
+  operadorNome,
+  aoQuererFecharCaixa,
+  aoQuererRelatorios,
+  aoQuererGerenciarProdutos,
+}: Props) {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [eanTexto, setEanTexto] = useState('')
   const [erroBusca, setErroBusca] = useState<string | null>(null)
@@ -447,6 +454,11 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
         >
           Produtos
         </button>
+        {aoQuererRelatorios && (
+          <button type="button" className="app-btn-outline" onClick={aoQuererRelatorios}>
+            Relatorios
+          </button>
+        )}
         <button type="button" className="app-btn-outline" onClick={aoQuererFecharCaixa}>
           Fechar caixa
         </button>
