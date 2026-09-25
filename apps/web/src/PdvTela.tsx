@@ -1,6 +1,7 @@
 import { centavos, formatarBRL, FORMAS_PAGAMENTO, type FormaPagamento } from '@adega/core'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { SangriaModal } from './SangriaModal'
 import {
   buscarProdutoPorEan,
   buscarProdutosPorDescricao,
@@ -101,6 +102,7 @@ export function PdvTela({
   const [erroBusca, setErroBusca] = useState<string | null>(null)
   const [eanNaoCadastrado, setEanNaoCadastrado] = useState<string | null>(null)
   const [escolhaMesmoCodigo, setEscolhaMesmoCodigo] = useState(false)
+  const [sangriaAberta, setSangriaAberta] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [sugestoes, setSugestoes] = useState<ProdutoApi[]>([])
   // 'itens': passando produtos -- lado direito so mostra o ultimo item e o
@@ -497,6 +499,14 @@ export function PdvTela({
 
   return (
     <div className="app pdv-tela">
+      {sangriaAberta && (
+        <SangriaModal
+          aoFechar={() => {
+            setSangriaAberta(false)
+            eanRef.current?.focus()
+          }}
+        />
+      )}
       <TopoApp titulo="Ponto de venda">
         <span>{operadorNome}</span>
         <button
@@ -516,6 +526,9 @@ export function PdvTela({
             Relatorios
           </button>
         )}
+        <button type="button" className="app-btn-outline" onClick={() => setSangriaAberta(true)}>
+          Sangria
+        </button>
         <button type="button" className="app-btn-outline" onClick={aoQuererFecharCaixa}>
           Fechar caixa
         </button>

@@ -368,3 +368,18 @@ export function confirmarEntradaNota(dados: {
     body: JSON.stringify(dados),
   })
 }
+
+export type TipoMovimentoCaixaApi = 'sangria' | 'suprimento' | 'despesa' | 'entrada_avulsa'
+
+/** Sangria (retirada), suprimento (reforco de troco) ou despesa paga com o dinheiro do caixa. */
+export function registrarMovimentoCaixa(dados: {
+  readonly tipo: TipoMovimentoCaixaApi
+  /** Centavos. */
+  readonly valor: number
+  readonly descricao: string
+}) {
+  return requisitar<{ movimento: unknown }>('/caixa/movimentos', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
