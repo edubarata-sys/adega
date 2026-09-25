@@ -30,6 +30,8 @@ interface Props {
   readonly aoQuererFecharCaixa: () => void
   /** So vem preenchido pra administrador (relatorio mostra custo e lucro). */
   readonly aoQuererRelatorios?: () => void
+  /** So admin: entrada de mercadoria por foto da nota. */
+  readonly aoQuererEntradaNota?: () => void
   /** Com codigo: abre o cadastro ja em "Novo produto" com esse codigo. */
   readonly aoQuererGerenciarProdutos: (eanInicial?: string) => void
 }
@@ -88,6 +90,7 @@ export function PdvTela({
   operadorNome,
   aoQuererFecharCaixa,
   aoQuererRelatorios,
+  aoQuererEntradaNota,
   aoQuererGerenciarProdutos,
 }: Props) {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -454,6 +457,11 @@ export function PdvTela({
         >
           Produtos
         </button>
+        {aoQuererEntradaNota && (
+          <button type="button" className="app-btn-outline" onClick={aoQuererEntradaNota}>
+            Entrada por nota
+          </button>
+        )}
         {aoQuererRelatorios && (
           <button type="button" className="app-btn-outline" onClick={aoQuererRelatorios}>
             Relatorios

@@ -75,7 +75,7 @@ const AjusteEstoqueBodySchema = z.object({
  * EXATA por EAN falha silenciosamente pra produtos com codigo de 12 digitos
  * (bebidas importadas, tipicamente) mesmo com o EAN certo na etiqueta.
  */
-function candidatosEan(eanBruto: string): string[] {
+export function candidatosEan(eanBruto: string): string[] {
   const digitos = eanBruto.trim()
   const candidatos = new Set<string>([digitos])
   if (digitos.length === 13 && digitos.startsWith('0')) {

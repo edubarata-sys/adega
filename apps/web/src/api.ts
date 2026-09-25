@@ -315,3 +315,54 @@ export function buscarRelatorioResumo(inicio: string, fim: string) {
     `/relatorios/resumo?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`,
   )
 }
+
+export interface ProdutoResumoNota {
+  readonly id: string
+  readonly descricao: string
+  readonly ean: string | null
+  readonly estoqueAtual: number | string | null
+}
+
+export interface ItemNotaLidoApi {
+  readonly indice: number
+  readonly descricaoLida: string
+  readonly ean: string | null
+  readonly quantidade: number
+  readonly unidade: string | null
+  /** Centavos. */
+  readonly custoUnitario: number | null
+  readonly valorTotal: number | null
+  readonly produto: ProdutoResumoNota | null
+  readonly ligadoPor: 'codigo' | null
+  readonly sugestoes: readonly (ProdutoResumoNota & { readonly pontuacao: number })[]
+}
+
+export interface NotaLidaApi {
+  readonly fornecedor: string | null
+  readonly numero: string | null
+  readonly data: string | null
+  readonly modelo: string
+  readonly itens: readonly ItemNotaLidoApi[]
+}
+
+export function lerNotaPorFoto(imagemBase64: string, mime: string) {
+  return requisitar<NotaLidaApi>('/estoque/nota/ler', {
+    method: 'POST',
+    body: JSON.stringify({ imagemBase64, mime }),
+  })
+}
+
+export function confirmarEntradaNota(dados: {
+  readonly fornecedor?: string
+  readonly numero?: string
+  readonly itens: readonly {
+    readonly produtoId: string
+    readonly quantidade: number
+    readonly custoUnitario?: number
+  }[]
+}) {
+  return requisitar<{ status: 'ok'; itensLancados: number }>('/estoque/nota/confirmar', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
