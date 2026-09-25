@@ -212,7 +212,21 @@ export function PdvTela({
     setValorPagamentoTexto(faltaPagar > 0 ? centavosParaTexto(faltaPagar) : '')
   }, [faltaPagar])
 
-  function adicionarProduto(produto: ProdutoApi) {
+  /**
+   * Quantidade antes do produto, igual ao sistema antigo: "3*" + produto
+   * (ou "3**", "3*coca", "3*7894900027013") entra com quantidade 3.
+   * Digitou so "3*" e Enter: vale pro PROXIMO produto (pistola ou nome).
+   */
+  const multiplicadorRef = useRef(1)
+  const [multiplicador, setMultiplicador] = useState(1)
+  function definirMultiplicador(q: number) {
+    multiplicadorRef.current = q
+    setMultiplicador(q)
+  }
+
+  function adicionarProduto(produto: ProdutoApi, quantidade?: number) {
+    const qtd = quantidade ?? multiplicadorRef.current
+    definirMultiplicador(1)
     setUltimoItem(produto)
     setCarrinho((atual) =>
       adicionarAoCarrinho(atual, {
@@ -220,7 +234,7 @@ export function PdvTela({
         ean: produto.ean,
         descricao: produto.descricao,
         precoUnitario: centavos(produto.precoVenda),
-        quantidade: 1,
+        quantidade: qtd,
       }),
     )
     setSugestoes([])
@@ -236,8 +250,26 @@ export function PdvTela({
    * seguinte virava um numero de 26 digitos que nunca achava nada).
    */
   async function processarEntrada(textoBruto: string) {
-    const texto = textoBruto.trim()
+    let texto = textoBruto.trim()
     if (!texto || buscandoRef.current) return
+    const comQtd = texto.match(/^(\d+(?:[.,]\d+)?)\s*\*+\s*(.*)$/)
+    if (comQtd) {
+      const q = Number(comQtd[1]!.replace(',', '.'))
+      if (!(q > 0)) {
+        setErroBusca('Quantidade invalida antes do *.')
+        setEanTexto('')
+        return
+      }
+      definirMultiplicador(q)
+      texto = comQtd[2]!.trim()
+      if (!texto) {
+        // So "3*": espera o proximo produto.
+        setEanTexto('')
+        setErroBusca(null)
+        eanRef.current?.focus()
+        return
+      }
+    }
     buscandoRef.current = true
     setBuscando(true)
     setErroBusca(null)
@@ -305,8 +337,12 @@ export function PdvTela({
       const marcas = teclasRef.current
       teclasRef.current = []
       const valor = eanRef.current?.value.trim() ?? ''
-      if (marcas.length < MIN_DIGITOS_EAN || !/^\d{8,14}$/.test(valor)) return
-      const intervaloMedio = (marcas[marcas.length - 1]! - marcas[0]!) / (marcas.length - 1)
+      // "3*" digitado na mao + pistola: olha so a parte do codigo.
+      const codigo = valor.replace(/^\d+(?:[.,]\d+)?\s*\*+\s*/, '')
+      if (marcas.length < MIN_DIGITOS_EAN || !/^\d{8,14}$/.test(codigo)) return
+      const ultimas = marcas.slice(-codigo.length)
+      const intervaloMedio =
+        (ultimas[ultimas.length - 1]! - ultimas[0]!) / Math.max(1, ultimas.length - 1)
       if (intervaloMedio <= LIMIAR_PISTOLA_MS) void processarEntrada(valor)
     }, ESPERA_FIM_LEITURA_MS)
   }
@@ -486,9 +522,23 @@ export function PdvTela({
               value={eanTexto}
               onChange={(e) => setEanTexto(e.target.value)}
               onKeyDown={aoTeclarBusca}
-              placeholder="Passe a pistola, ou digite o nome e aperte Enter"
+              placeholder="Passe a pistola ou digite o nome (3* antes = quantidade 3)"
               className="app-input app-input-lg"
             />
+            {multiplicador !== 1 && (
+              <p className="app-aviso" style={{ margin: '6px 0 0' }}>
+                Proximo produto entra com quantidade{' '}
+                <strong>{multiplicador.toLocaleString('pt-BR')}</strong>{' '}
+                <button
+                  type="button"
+                  className="app-btn-ghost"
+                  style={{ padding: '0 6px' }}
+                  onClick={() => definirMultiplicador(1)}
+                >
+                  cancelar
+                </button>
+              </p>
+            )}
             {buscando && <p className="app-label">Buscando...</p>}
             {erroBusca && <p className="app-msg-erro">{erroBusca}</p>}
             {erroBusca && eanNaoCadastrado && (
