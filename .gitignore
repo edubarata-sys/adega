@@ -18,3 +18,6 @@ apps/bridge/*.exe
 Thumbs.db
 .vscode/
 .idea/
+
+# Banco do sistema antigo (Firebird) -- dados de cliente, fica so local
+legado/
