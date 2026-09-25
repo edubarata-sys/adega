@@ -70,15 +70,24 @@ const ConfirmarBody = z.object({
     .min(1),
 })
 
-/** Tira acento, caixa e pontuacao; separa em palavras uteis. */
+const PALAVRAS_VAZIAS = new Set(['de', 'da', 'do', 'com', 'c', 'e', 'un', 'und', 'cx', 'fd', 'pct'])
+
+/**
+ * Tira acento, caixa e pontuacao; separa em palavras uteis. Padroniza
+ * volume ("2 litros", "2 lts", "2lt" -> "2l"; "350 ml" -> "350ml";
+ * "1,5l" -> "1.5l") pra nota e cadastro escritos diferente baterem.
+ */
 function palavras(texto: string): string[] {
   return texto
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/(\d),(\d)/g, '$1.$2')
+    .replace(/(\d(?:\.\d+)?)\s*(litros?|lts?|l)\b/g, '$1l')
+    .replace(/(\d+)\s*(ml|mls)\b/g, '$1ml')
+    .replace(/\blong\s*neck\b/g, 'longneck')
     .split(/[^a-z0-9.]+/)
-    .filter((p) => p.length >= 2 || /\d/.test(p))
+    .filter((p) => (p.length >= 2 || /\d/.test(p)) && !PALAVRAS_VAZIAS.has(p))
 }
 
 /** Parecenca simples por palavras em comum (com peso maior pra numeros, ex. 1.5l, 350ml). */
@@ -92,6 +101,29 @@ function pontuar(lido: string[], cadastro: string[]): number {
       pontos += 0.5
   }
   return pontos / Math.max(lido.length, cadastro.length)
+}
+
+type ProdutoResumo = {
+  id: string
+  descricao: string
+  ean: string | null
+  estoqueAtual: string | number | null
+}
+function ligar(
+  porCodigo: ProdutoResumo | undefined,
+  sugestoes: (ProdutoResumo & { pontuacao: number })[],
+): { produto: ProdutoResumo | null; ligadoPor: 'codigo' | 'nome' | null } {
+  const resumo = (p: ProdutoResumo) => ({
+    id: p.id,
+    descricao: p.descricao,
+    ean: p.ean,
+    estoqueAtual: p.estoqueAtual,
+  })
+  if (porCodigo) return { produto: resumo(porCodigo), ligadoPor: 'codigo' }
+  const [a, b] = sugestoes
+  if (a && a.pontuacao >= 0.5 && (!b || a.pontuacao - b.pontuacao >= 0.1))
+    return { produto: resumo(a), ligadoPor: 'nome' }
+  return { produto: null, ligadoPor: null }
 }
 
 function extrairJson(texto: string): unknown {
@@ -165,12 +197,10 @@ export function registrarRotasNotaEntrada(app: FastifyInstance, deps: Dependenci
         conteudo = json.choices?.[0]?.message?.content ?? ''
       } catch (e) {
         request.log.warn({ e }, 'groq inalcancavel')
-        return reply
-          .code(502)
-          .send({
-            status: 'erro',
-            motivo: 'Nao consegui falar com o servico de leitura. Tente de novo.',
-          })
+        return reply.code(502).send({
+          status: 'erro',
+          motivo: 'Nao consegui falar com o servico de leitura. Tente de novo.',
+        })
       }
 
       let nota: z.infer<typeof NotaLidaSchema>
@@ -236,15 +266,10 @@ export function registrarRotasNotaEntrada(app: FastifyInstance, deps: Dependenci
             unidade: i.unidade ?? null,
             custoUnitario: valorUnitario,
             valorTotal: reaisParaCentavos(i.valor_total),
-            produto: porCodigo
-              ? {
-                  id: porCodigo.id,
-                  descricao: porCodigo.descricao,
-                  ean: porCodigo.ean,
-                  estoqueAtual: porCodigo.estoqueAtual,
-                }
-              : null,
-            ligadoPor: porCodigo ? ('codigo' as const) : null,
+            // Sem codigo de barras: liga sozinho pelo nome quando a melhor
+            // sugestao e forte e claramente melhor que a segunda. Se nao,
+            // fica pra pessoa escolher na lista (ja ordenada).
+            ...ligar(porCodigo, sugestoes),
             sugestoes,
           }
         })

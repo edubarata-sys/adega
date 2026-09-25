@@ -341,15 +341,12 @@ function LinhaItem({
         precoVenda: preco,
         custoMedio: textoParaCentavos(linha.custoTexto) ?? undefined,
       })
-      aoMudar({
-        produto: {
-          id: produto.id,
-          descricao: produto.descricao,
-          ean: produto.ean ?? null,
-          estoqueAtual: produto.estoqueAtual ?? 0,
-        },
+      escolher({
+        id: produto.id,
+        descricao: produto.descricao,
+        ean: produto.ean ?? null,
+        estoqueAtual: produto.estoqueAtual ?? 0,
       })
-      setModo('nada')
     } catch (e) {
       setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao cadastrar.')
     } finally {
@@ -357,50 +354,107 @@ function LinhaItem({
     }
   }
 
-  const borda = linha.ignorar
-    ? 'var(--text-muted)'
-    : linha.produto
-      ? 'rgba(80, 180, 90, 0.7)'
-      : '#e0a100'
+  function escolher(p: ProdutoResumoNota) {
+    aoMudar({ produto: p })
+    setModo('nada')
+    setResultados([])
+    setErro(null)
+  }
+
+  const ok = Boolean(linha.produto) && !linha.ignorar
+  const cor = linha.ignorar ? 'var(--text-muted)' : ok ? '#4caf50' : '#e0a100'
 
   return (
     <div
       style={{
-        border: `1px solid ${borda}`,
-        borderLeftWidth: 5,
-        borderRadius: 10,
-        padding: 10,
-        marginBottom: 8,
+        borderLeft: `4px solid ${cor}`,
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        padding: '8px 10px',
         opacity: linha.ignorar ? 0.5 : 1,
       }}
     >
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'end' }}>
-        <div style={{ flex: '2 1 220px' }}>
-          <span className="app-label">Lido na nota</span>
-          <div>
-            <strong>{item.descricaoLida || '(sem descricao)'}</strong>
-            {item.ean && <span style={{ color: 'var(--text-muted)' }}> - cod. {item.ean}</span>}
+      {/* Linha 1: produto do sistema (ou aviso) + qtd + custo */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          {linha.produto ? (
+            <>
+              <strong>{linha.produto.descricao}</strong>
+              <div style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>
+                estoque {fmtEstoque(linha.produto.estoqueAtual)} → entra +
+                {fmtEstoque(textoParaQtd(linha.quantidadeTexto))}
+              </div>
+            </>
+          ) : (
+            <strong style={{ color: '#e0a100' }}>{item.descricaoLida || '(sem descricao)'}</strong>
+          )}
+          <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>
+            na nota: {item.descricaoLida || '(sem descricao)'}
+            {item.ean ? ` · cod. ${item.ean}` : ''}
           </div>
         </div>
-        <label style={{ flex: '0 1 90px' }}>
-          <span className="app-label">Qtd</span>
-          <input
-            className="app-input"
-            inputMode="decimal"
-            value={linha.quantidadeTexto}
-            onChange={(e) => aoMudar({ quantidadeTexto: e.target.value })}
-          />
-        </label>
-        <label style={{ flex: '0 1 110px' }}>
-          <span className="app-label">Custo un. (R$)</span>
-          <input
-            className="app-input"
-            inputMode="decimal"
-            value={linha.custoTexto}
-            onChange={(e) => aoMudar({ custoTexto: e.target.value })}
-          />
-        </label>
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input
+          className="app-input"
+          aria-label="Quantidade"
+          inputMode="decimal"
+          style={{ width: 70, textAlign: 'center' }}
+          value={linha.quantidadeTexto}
+          onChange={(e) => aoMudar({ quantidadeTexto: e.target.value })}
+        />
+        <input
+          className="app-input"
+          aria-label="Custo unitario"
+          inputMode="decimal"
+          style={{ width: 84, textAlign: 'right' }}
+          placeholder="custo"
+          value={linha.custoTexto}
+          onChange={(e) => aoMudar({ custoTexto: e.target.value })}
+        />
+      </div>
+
+      {/* Linha 2: acoes. Produto que ja existe entra direto; so o que NAO
+          existe pede cadastro (pedido do cliente: sem lista de parecidos). */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 10,
+          marginTop: 6,
+          fontSize: '0.85em',
+          alignItems: 'center',
+        }}
+      >
+        {!linha.produto && !linha.ignorar && (
+          <>
+            <span style={{ color: '#e0a100' }}>Esse produto nao tem no sistema.</span>
+            <button
+              type="button"
+              className="app-btn"
+              style={{ padding: '4px 10px' }}
+              onClick={() => setModo('cadastrar')}
+            >
+              Cadastrar
+            </button>
+            <button
+              type="button"
+              className="app-btn-ghost"
+              style={{ padding: '2px 6px' }}
+              onClick={() => setModo('buscar')}
+            >
+              Ja existe com outro nome
+            </button>
+          </>
+        )}
+        {linha.produto && (
+          <button
+            type="button"
+            className="app-btn-ghost"
+            style={{ padding: '2px 6px' }}
+            onClick={() => setModo(modo === 'nada' ? 'buscar' : 'nada')}
+          >
+            Trocar produto
+          </button>
+        )}
+        <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input
             type="checkbox"
             checked={linha.ignorar}
@@ -410,142 +464,88 @@ function LinhaItem({
         </label>
       </div>
 
-      {!linha.ignorar && (
-        <div style={{ marginTop: 8 }}>
-          {linha.produto ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-              <span>
-                Produto: <strong>{linha.produto.descricao}</strong>
-                <span style={{ color: 'var(--text-muted)' }}>
-                  {' '}
-                  - estoque atual {fmtEstoque(linha.produto.estoqueAtual)}
-                  {item.ligadoPor === 'codigo' && linha.produto.id === item.produto?.id
-                    ? ' (pelo codigo de barras)'
-                    : ''}
-                </span>
-              </span>
-              <button
-                type="button"
-                className="app-btn-ghost"
-                onClick={() => aoMudar({ produto: null })}
-              >
-                Trocar
-              </button>
-            </div>
-          ) : (
+      {/* Painel de escolha: lista enxuta (select), buscar outro, ou cadastrar */}
+      {modo !== 'nada' && !linha.ignorar && (
+        <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+          {modo === 'buscar' && (
             <>
-              <p style={{ margin: '0 0 6px', color: '#e0a100' }}>Nao cadastrado / nao ligado</p>
-              {item.sugestoes.length > 0 && (
-                <div className="app-pill-group" style={{ marginBottom: 6 }}>
-                  {item.sugestoes.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="app-pill-btn"
-                      onClick={() => aoMudar({ produto: s })}
-                    >
-                      {s.descricao}
-                      <span style={{ display: 'block', fontSize: '0.85em', opacity: 0.8 }}>
-                        Estoque: {fmtEstoque(s.estoqueAtual)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="app-btn-outline" onClick={() => setModo('buscar')}>
-                  Buscar produto
-                </button>
-                <button type="button" className="app-btn" onClick={() => setModo('cadastrar')}>
-                  Cadastrar novo
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="app-input"
+                  autoFocus
+                  placeholder="Nome do produto"
+                  value={termo}
+                  onChange={(e) => setTermo(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void buscar()}
+                />
+                <button type="button" className="app-btn-outline" onClick={() => void buscar()}>
+                  Buscar
                 </button>
               </div>
-
-              {modo === 'buscar' && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      className="app-input"
-                      autoFocus
-                      placeholder="Nome do produto"
-                      value={termo}
-                      onChange={(e) => setTermo(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && void buscar()}
-                    />
-                    <button type="button" className="app-btn-outline" onClick={() => void buscar()}>
-                      Buscar
-                    </button>
-                  </div>
-                  {resultados.length > 0 && (
-                    <div className="app-pill-group" style={{ marginTop: 6 }}>
-                      {resultados.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="app-pill-btn"
-                          onClick={() => {
-                            aoMudar({ produto: p })
-                            setModo('nada')
-                          }}
-                        >
-                          {p.descricao}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {resultados.length > 0 && (
+                <select
+                  className="app-input"
+                  value=""
+                  onChange={(e) => {
+                    const p = resultados.find((x) => x.id === e.target.value)
+                    if (p) escolher(p)
+                  }}
+                >
+                  <option value="" disabled>
+                    {resultados.length} encontrado(s) — escolha:
+                  </option>
+                  {resultados.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.descricao} (estoque {fmtEstoque(p.estoqueAtual)})
+                    </option>
+                  ))}
+                </select>
               )}
-
-              {modo === 'cadastrar' && (
-                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                  <label>
-                    <span className="app-label">Codigo de barras (passe a pistola)</span>
-                    <input
-                      className="app-input"
-                      autoFocus
-                      inputMode="numeric"
-                      value={ean}
-                      onChange={(e) => setEan(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.preventDefault()
-                      }}
-                    />
-                  </label>
-                  <label>
-                    <span className="app-label">Descricao</span>
-                    <input
-                      className="app-input"
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span className="app-label">Preco de venda (R$)</span>
-                    <input
-                      className="app-input"
-                      inputMode="decimal"
-                      value={precoTexto}
-                      onChange={(e) => setPrecoTexto(e.target.value)}
-                    />
-                  </label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      type="button"
-                      className="app-btn"
-                      disabled={salvando}
-                      onClick={() => void cadastrar()}
-                    >
-                      {salvando ? 'Salvando...' : 'Salvar produto'}
-                    </button>
-                    <button type="button" className="app-btn-ghost" onClick={() => setModo('nada')}>
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              )}
-              {erro && <p className="app-msg-erro">{erro}</p>}
             </>
           )}
+
+          {modo === 'cadastrar' && (
+            <>
+              <input
+                className="app-input"
+                autoFocus
+                inputMode="numeric"
+                placeholder="Codigo de barras (passe a pistola)"
+                value={ean}
+                onChange={(e) => setEan(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.preventDefault()
+                }}
+              />
+              <input
+                className="app-input"
+                placeholder="Descricao"
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+              />
+              <input
+                className="app-input"
+                inputMode="decimal"
+                placeholder="Preco de venda (R$)"
+                value={precoTexto}
+                onChange={(e) => setPrecoTexto(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="app-btn"
+                  disabled={salvando}
+                  onClick={() => void cadastrar()}
+                >
+                  {salvando ? 'Salvando...' : 'Salvar produto novo'}
+                </button>
+                <button type="button" className="app-btn-ghost" onClick={() => setModo('nada')}>
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
+          {erro && <p className="app-msg-erro">{erro}</p>}
         </div>
       )}
     </div>

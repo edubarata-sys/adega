@@ -333,7 +333,7 @@ export interface ItemNotaLidoApi {
   readonly custoUnitario: number | null
   readonly valorTotal: number | null
   readonly produto: ProdutoResumoNota | null
-  readonly ligadoPor: 'codigo' | null
+  readonly ligadoPor: 'codigo' | 'nome' | null
   readonly sugestoes: readonly (ProdutoResumoNota & { readonly pontuacao: number })[]
 }
 
