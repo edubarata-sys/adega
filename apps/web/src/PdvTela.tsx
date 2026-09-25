@@ -371,58 +371,61 @@ export function PdvTela({ operadorNome, aoQuererFecharCaixa, aoQuererGerenciarPr
 
   if (resultado) {
     const dinheiro = resultado.pagamentos.find((p) => p.forma === 'dinheiro')
+    // Mesmo esquema da tela de venda: pagina sem rolagem; so o quadro do
+    // recibo rola por dentro quando a nota e grande. Direita fixa com total,
+    // troco e os botoes (Nova venda ja focado: Enter comeca a proxima).
     return (
-      <div className="app">
+      <div className="app pdv-tela">
         <TopoApp titulo="Venda registrada">
           <span>{operadorNome}</span>
         </TopoApp>
-        <main className="app-shell" style={{ maxWidth: 480 }}>
-          <div className="app-card">
-            <div className="app-resultado-icone ok">✓</div>
-            <h2 style={{ margin: '0 0 4px' }}>Venda registrada</h2>
-            <p className="app-total-label" style={{ textAlign: 'left', marginTop: 12 }}>
-              Total
-            </p>
-            <p className="app-total" style={{ textAlign: 'left' }}>
-              {formatarBRL(centavos(resultado.venda.total))}
-            </p>
-            {dinheiro && dinheiro.troco > 0 && (
-              <p style={{ fontSize: '1.1rem' }}>
-                Troco:{' '}
-                <strong style={{ color: 'var(--gold)' }}>
-                  {formatarBRL(centavos(dinheiro.troco))}
-                </strong>
-              </p>
-            )}
-
-            {recibo && (
-              <>
-                <ReciboParaImpressao linhas={recibo.linhas} />
-                <pre
-                  style={{
-                    fontFamily: 'ui-monospace, monospace',
-                    background: 'var(--bg-card-alt)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    padding: '1rem',
-                    whiteSpace: 'pre-wrap',
-                    color: '#dcd4bf',
-                    fontSize: '.85rem',
-                  }}
-                >
-                  {recibo.linhas.join('\n')}
-                </pre>
-                <button type="button" onClick={() => window.print()} className="app-btn-outline">
-                  Imprimir recibo
-                </button>
-              </>
-            )}
-
-            <div style={{ marginTop: 16 }}>
-              <button type="button" onClick={novaVenda} className="app-btn app-btn-grande">
-                Nova venda
-              </button>
+        <main className="pdv-corpo">
+          <div className="pdv-coluna">
+            <div className="app-card pdv-card-compacto pdv-carrinho">
+              <h2>Recibo</h2>
+              {recibo ? (
+                <>
+                  <ReciboParaImpressao linhas={recibo.linhas} />
+                  <div className="pdv-recibo-tela">
+                    <pre>{recibo.linhas.join('\n')}</pre>
+                  </div>
+                </>
+              ) : (
+                <p className="app-label">Carregando recibo...</p>
+              )}
             </div>
+          </div>
+
+          <div className="pdv-coluna pdv-coluna-pagamento">
+            <div className="app-card pdv-card-compacto pdv-ultimo-item">
+              <div className="app-resultado-icone ok">✓</div>
+              <h2 style={{ margin: 0 }}>Venda registrada</h2>
+              <p className="app-total-label" style={{ margin: '8px 0 0' }}>
+                Total
+              </p>
+              <p className="app-total" style={{ margin: 0 }}>
+                {formatarBRL(centavos(resultado.venda.total))}
+              </p>
+              {dinheiro && dinheiro.troco > 0 && (
+                <p style={{ fontSize: '1.3rem', margin: '8px 0 0' }}>
+                  Troco:{' '}
+                  <strong style={{ color: 'var(--gold)' }}>
+                    {formatarBRL(centavos(dinheiro.troco))}
+                  </strong>
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="app-btn-outline"
+              disabled={!recibo}
+            >
+              Imprimir recibo
+            </button>
+            <button type="button" autoFocus onClick={novaVenda} className="app-btn app-btn-grande">
+              Nova venda
+            </button>
           </div>
         </main>
       </div>

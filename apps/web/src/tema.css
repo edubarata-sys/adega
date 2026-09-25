@@ -694,3 +694,24 @@ body,
   font-size: 0.65rem;
   color: var(--text-muted);
 }
+
+/* Tela "Venda registrada": so o recibo rola por dentro. */
+.pdv-recibo-tela {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+.pdv-recibo-tela pre {
+  margin: 0 auto;
+  width: max-content;
+  max-width: 100%;
+  font-family: ui-monospace, 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #dcd4bf;
+  white-space: pre-wrap;
+}
