@@ -341,6 +341,13 @@ function construtorReconhecimentoDeVoz(): (new () => ReconhecimentoVoz) | null {
   return janela.SpeechRecognition ?? janela.webkitSpeechRecognition ?? null
 }
 
+function formatarEstoque(valor: number | string | null): string {
+  if (valor === null || valor === undefined || valor === '') return '0'
+  const n = Number(valor)
+  if (!Number.isFinite(n)) return String(valor)
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+}
+
 function AbaEstoquePorVoz() {
   const [suportaVoz] = useState(() => construtorReconhecimentoDeVoz() !== null)
   const [ouvindo, setOuvindo] = useState(false)
@@ -581,6 +588,9 @@ function AbaEstoquePorVoz() {
                   onClick={() => setProdutoId(p.id)}
                 >
                   {p.descricao}
+                  <span style={{ display: 'block', fontSize: '0.85em', opacity: 0.8 }}>
+                    Estoque: {formatarEstoque(p.estoqueAtual)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -588,6 +598,14 @@ function AbaEstoquePorVoz() {
 
           {termoBusca.trim().length >= 2 && !buscando && resultados.length === 0 && (
             <p className="app-msg-erro">Nenhum produto encontrado com esse nome.</p>
+          )}
+
+          {produtoSelecionado && (
+            <p style={{ marginTop: 12, fontSize: '1.1em' }}>
+              <strong>{produtoSelecionado.descricao}</strong>
+              <br />
+              Estoque atual: <strong>{formatarEstoque(produtoSelecionado.estoqueAtual)}</strong>
+            </p>
           )}
 
           {produtoSelecionado && quantidadeValida && (
