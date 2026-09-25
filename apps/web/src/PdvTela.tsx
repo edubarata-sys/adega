@@ -97,6 +97,7 @@ export function PdvTela({
   const [eanTexto, setEanTexto] = useState('')
   const [erroBusca, setErroBusca] = useState<string | null>(null)
   const [eanNaoCadastrado, setEanNaoCadastrado] = useState<string | null>(null)
+  const [escolhaMesmoCodigo, setEscolhaMesmoCodigo] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [sugestoes, setSugestoes] = useState<ProdutoApi[]>([])
   // 'itens': passando produtos -- lado direito so mostra o ultimo item e o
@@ -238,6 +239,7 @@ export function PdvTela({
       }),
     )
     setSugestoes([])
+    setEscolhaMesmoCodigo(false)
     setErroBusca(null)
     eanRef.current?.focus()
   }
@@ -274,12 +276,20 @@ export function PdvTela({
     setBuscando(true)
     setErroBusca(null)
     setEanNaoCadastrado(null)
+    setEscolhaMesmoCodigo(false)
     setSugestoes([])
     setEanTexto('')
     try {
       if (/^\d+$/.test(texto)) {
         try {
-          const { produto } = await buscarProdutoPorEan(texto)
+          const { produto, produtos } = await buscarProdutoPorEan(texto)
+          if (produtos && produtos.length > 1) {
+            // Mesmo codigo em varios produtos (ex.: gelo por sabor): pergunta
+            // qual. A quantidade do "3*" continua valendo pro escolhido.
+            setEscolhaMesmoCodigo(true)
+            setSugestoes(produtos)
+            return
+          }
           adicionarProduto(produto)
         } catch (e) {
           if (e instanceof ErroRequisicao && e.status === 404) {
@@ -550,6 +560,11 @@ export function PdvTela({
               >
                 Cadastrar produto com este codigo
               </button>
+            )}
+            {sugestoes.length > 0 && escolhaMesmoCodigo && (
+              <p className="app-aviso" style={{ margin: '8px 0 0', fontSize: '1.1em' }}>
+                <strong>Qual e?</strong> Esse codigo de barras e de {sugestoes.length} produtos.
+              </p>
             )}
             {sugestoes.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>

@@ -106,7 +106,9 @@ export function fecharCaixa(valorContado: number) {
 }
 
 export function buscarProdutoPorEan(ean: string) {
-  return requisitar<{ produto: ProdutoApi }>(`/produtos/ean/${encodeURIComponent(ean)}`)
+  return requisitar<{ produto: ProdutoApi; produtos?: ProdutoApi[] }>(
+    `/produtos/ean/${encodeURIComponent(ean)}`,
+  )
 }
 
 export function listarEansAtivos() {

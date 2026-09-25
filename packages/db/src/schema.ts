@@ -119,7 +119,10 @@ export const produtos = pgTable(
     atualizadoEm: agora().notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('produtos_ean_idx').on(t.ean),
+    // NAO unico (25/09): o mesmo codigo de barras pode estar em mais de um
+    // produto (gelo por sabor, Coca normal/Zero com o mesmo codigo). O caixa
+    // pergunta qual e quando o codigo bate em mais de um.
+    index('produtos_ean_idx').on(t.ean),
     index('produtos_descricao_idx').on(t.descricao),
     index('produtos_atualizado_em_idx').on(t.atualizadoEm),
   ],

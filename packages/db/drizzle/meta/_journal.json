@@ -15,6 +15,13 @@
       "when": 1789834520957,
       "tag": "0001_milky_scarecrow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790370000000,
+      "tag": "0002_ean_nao_unico",
+      "breakpoints": true
     }
   ]
 }

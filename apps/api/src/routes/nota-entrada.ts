@@ -227,8 +227,10 @@ export function registrarRotasNotaEntrada(app: FastifyInstance, deps: Dependenci
         .from(schema.produtos)
         .leftJoin(schema.estoqueSaldos, eq(schema.estoqueSaldos.produtoId, schema.produtos.id))
         .where(eq(schema.produtos.ativo, true))
-      const porEan = new Map<string, (typeof produtos)[number]>()
-      for (const p of produtos) if (p.ean) porEan.set(p.ean, p)
+      // Um codigo pode estar em mais de um produto (gelo por sabor, Coca
+      // normal/Zero): guarda a lista e desempata pelo nome lido na nota.
+      const porEan = new Map<string, (typeof produtos)[number][]>()
+      for (const p of produtos) if (p.ean) porEan.set(p.ean, [...(porEan.get(p.ean) ?? []), p])
       const palavrasCadastro = produtos.map((p) => ({ p, w: palavras(p.descricao) }))
 
       const itens = nota.itens
@@ -237,10 +239,14 @@ export function registrarRotasNotaEntrada(app: FastifyInstance, deps: Dependenci
           const eanTexto =
             i.ean === null || i.ean === undefined ? null : String(i.ean).replace(/\D/g, '')
           const ean = eanTexto && /^\d{8,14}$/.test(eanTexto) ? eanTexto : null
-          let porCodigo: (typeof produtos)[number] | undefined
-          if (ean) for (const c of candidatosEan(ean)) porCodigo ??= porEan.get(c)
-
           const w = palavras(i.descricao)
+          const mesmoCodigo = ean ? candidatosEan(ean).flatMap((c) => porEan.get(c) ?? []) : []
+          const porCodigo =
+            mesmoCodigo.length <= 1
+              ? mesmoCodigo[0]
+              : [...mesmoCodigo].sort(
+                  (a, b) => pontuar(w, palavras(b.descricao)) - pontuar(w, palavras(a.descricao)),
+                )[0]
           const sugestoes = palavrasCadastro
             .map(({ p, w: wc }) => ({ p, s: pontuar(w, wc) }))
             .filter((x) => x.s >= 0.25)

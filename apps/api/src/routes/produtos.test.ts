@@ -185,7 +185,7 @@ describe('POST /produtos', () => {
     expect(Number(corpo.produto.estoqueAtual)).toBe(6)
   })
 
-  it('409 quando o EAN ja esta em uso por outro produto ativo', async () => {
+  it('aceita EAN repetido (mesmo codigo em mais de um produto)', async () => {
     await seedDados(ctx.db)
     const app = novoApp()
     const cookies = await cookieAdmin(app)
@@ -195,7 +195,10 @@ describe('POST /produtos', () => {
       cookies,
       payload: { descricao: 'Duplicado', ean: '7891000100019', precoVenda: 100 },
     })
-    expect(res.statusCode).toBe(409)
+    expect(res.statusCode).toBe(201)
+    const busca = await app.inject({ method: 'GET', url: '/produtos/ean/7891000100019', cookies })
+    expect(busca.statusCode).toBe(200)
+    expect(busca.json().produtos.length).toBe(2)
   })
 
   it('400 quando falta descricao ou o preco e invalido', async () => {

@@ -87,23 +87,9 @@ export function candidatosEan(eanBruto: string): string[] {
   return [...candidatos]
 }
 
-/** Verifica se ja existe outro produto ATIVO com o mesmo EAN -- o schema nao
- * tem unique constraint (granel/fracionado pode ter EAN nulo), mas dois
- * produtos ativos com o mesmo EAN quebrariam a busca exata da pistola
- * (GET /produtos/ean/:ean sempre pega o primeiro que bater). */
-async function eanJaEmUso(
-  deps: DependenciasApp,
-  ean: string,
-  ignorarProdutoId?: string,
-): Promise<boolean> {
-  const condicoes = [eq(schema.produtos.ean, ean), eq(schema.produtos.ativo, true)]
-  if (ignorarProdutoId) condicoes.push(ne(schema.produtos.id, ignorarProdutoId))
-  const [existente] = await deps.db
-    .select({ id: schema.produtos.id })
-    .from(schema.produtos)
-    .where(and(...condicoes))
-  return Boolean(existente)
-}
+// (25/09) Nao bloqueia mais EAN repetido: o mesmo codigo pode estar em
+// varios produtos (gelo por sabor, Coca normal/Zero); GET /produtos/ean/:ean
+// devolve todos e o caixa pergunta qual.
 
 export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasApp): void {
   const requireAuth = criarRequireAuth(deps.sessionSecret)
@@ -117,18 +103,22 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
     { preHandler: requireAuth },
     async (request, reply) => {
       const candidatos = candidatosEan(request.params.ean)
-      const [produto] = await deps.db
+      const produtos = await deps.db
         .select(selecaoProdutoComSaldo())
         .from(schema.produtos)
         .leftJoin(schema.estoqueSaldos, eq(schema.estoqueSaldos.produtoId, schema.produtos.id))
         .where(and(inArray(schema.produtos.ean, candidatos), eq(schema.produtos.ativo, true)))
+        .orderBy(schema.produtos.descricao)
 
-      if (!produto) {
+      if (produtos.length === 0) {
         return reply
           .code(404)
           .send({ status: 'erro', motivo: 'Produto nao encontrado para este EAN.' })
       }
-      return { produto }
+      // Mesmo codigo em mais de um produto (ex.: gelo por sabor): devolve
+      // todos em `produtos` e o caixa pergunta qual. `produto` = o primeiro,
+      // pra quem so precisa de um.
+      return { produto: produtos[0], produtos }
     },
   )
 
@@ -244,12 +234,6 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
       }
       const corpo = parse.data
 
-      if (corpo.ean && (await eanJaEmUso(deps, corpo.ean))) {
-        return reply
-          .code(409)
-          .send({ status: 'erro', motivo: `Ja existe um produto ativo com o EAN ${corpo.ean}.` })
-      }
-
       const produtoId = crypto.randomUUID()
       const usuarioId = request.usuarioAutenticado!.usuarioId
       const agora = new Date()
@@ -322,12 +306,6 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
         .where(eq(schema.produtos.id, produtoId))
       if (!existente) {
         return reply.code(404).send({ status: 'erro', motivo: 'Produto nao encontrado.' })
-      }
-
-      if (corpo.ean && (await eanJaEmUso(deps, corpo.ean, produtoId))) {
-        return reply
-          .code(409)
-          .send({ status: 'erro', motivo: `Ja existe outro produto ativo com o EAN ${corpo.ean}.` })
       }
 
       await deps.db
