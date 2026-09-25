@@ -72,6 +72,26 @@ async function prepararImagem(
  * entrada no estoque. Nada e gravado antes do "Dar entrada".
  */
 export function EntradaNotaTela({ aoVoltar }: Props) {
+  return (
+    <div className="app">
+      <TopoApp titulo="Entrada por nota">
+        <button type="button" className="app-btn-outline" onClick={aoVoltar}>
+          Voltar ao caixa
+        </button>
+      </TopoApp>
+      <main className="app-shell" style={{ maxWidth: 1180 }}>
+        <ConteudoEntradaNota />
+      </main>
+    </div>
+  )
+}
+
+/**
+ * Miolo da entrada por nota, sem cabecalho: usado na tela do PDV e na aba
+ * "Nota" do painel mobile (`compacto` = uma coluna, foto pequena).
+ * So estoque por enquanto -- financeiro vem depois (pedido do cliente 25/09).
+ */
+export function ConteudoEntradaNota({ compacto = false }: { readonly compacto?: boolean }) {
   const inputArquivoRef = useRef<HTMLInputElement>(null)
   const [previa, setPrevia] = useState<string | null>(null)
   const [lendo, setLendo] = useState(false)
@@ -155,132 +175,124 @@ export function EntradaNotaTela({ aoVoltar }: Props) {
   }
 
   return (
-    <div className="app">
-      <TopoApp titulo="Entrada por nota">
-        <button type="button" className="app-btn-outline" onClick={aoVoltar}>
-          Voltar ao caixa
+    <>
+      <div className={compacto ? undefined : 'app-card'}>
+        <p style={{ marginTop: 0 }}>
+          Tire uma foto da nota (reta, com boa luz, pegando todos os itens). A leitura leva alguns
+          segundos. Nada entra no estoque antes de voce conferir e apertar "Dar entrada".
+        </p>
+        <input
+          ref={inputArquivoRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={(e) => void aoEscolherFoto(e.target.files?.[0])}
+        />
+        <button
+          type="button"
+          className="app-btn app-btn-grande"
+          disabled={lendo}
+          onClick={() => inputArquivoRef.current?.click()}
+        >
+          {lendo
+            ? 'Lendo a nota...'
+            : nota
+              ? 'Ler outra nota'
+              : 'Tirar foto / escolher imagem da nota'}
         </button>
-      </TopoApp>
+        {erro && <p className="app-msg-erro">{erro}</p>}
+        {resultado && <p className="app-msg-ok">{resultado}</p>}
+      </div>
 
-      <main className="app-shell" style={{ maxWidth: 1180 }}>
-        <div className="app-card">
-          <p style={{ marginTop: 0 }}>
-            Tire uma foto da nota (reta, com boa luz, pegando todos os itens). A leitura leva alguns
-            segundos. Nada entra no estoque antes de voce conferir e apertar "Dar entrada".
-          </p>
-          <input
-            ref={inputArquivoRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: 'none' }}
-            onChange={(e) => void aoEscolherFoto(e.target.files?.[0])}
-          />
-          <button
-            type="button"
-            className="app-btn app-btn-grande"
-            disabled={lendo}
-            onClick={() => inputArquivoRef.current?.click()}
-          >
-            {lendo
-              ? 'Lendo a nota...'
-              : nota
-                ? 'Ler outra nota'
-                : 'Tirar foto / escolher imagem da nota'}
-          </button>
-          {erro && <p className="app-msg-erro">{erro}</p>}
-          {resultado && <p className="app-msg-ok">{resultado}</p>}
-        </div>
-
-        {nota && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: previa ? 'minmax(0, 1fr) minmax(0, 2.2fr)' : '1fr',
-              gap: 12,
-              marginTop: 12,
-              alignItems: 'start',
-            }}
-          >
-            {previa && (
-              <div className="app-card" style={{ margin: 0 }}>
-                <p className="app-label" style={{ marginTop: 0 }}>
-                  Foto
-                </p>
-                <img src={previa} alt="Nota" style={{ width: '100%', borderRadius: 8 }} />
-              </div>
-            )}
-
+      {nota && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: previa && !compacto ? 'minmax(0, 1fr) minmax(0, 2.2fr)' : '1fr',
+            gap: 12,
+            marginTop: 12,
+            alignItems: 'start',
+          }}
+        >
+          {previa && !compacto && (
             <div className="app-card" style={{ margin: 0 }}>
-              <div className="app-grid-2">
-                <label>
-                  <span className="app-label">Fornecedor</span>
-                  <input
-                    className="app-input"
-                    value={fornecedor}
-                    onChange={(e) => setFornecedor(e.target.value)}
-                  />
-                </label>
-                <label>
-                  <span className="app-label">Numero da nota</span>
-                  <input
-                    className="app-input"
-                    value={numero}
-                    onChange={(e) => setNumero(e.target.value)}
-                  />
-                </label>
-              </div>
-
-              <p style={{ margin: '12px 0' }}>
-                <strong>{linhas.length}</strong> item(ns) lido(s) -{' '}
-                <strong>{ativas.length - semProduto.length}</strong> ligado(s) a produto,{' '}
-                <strong style={{ color: semProduto.length ? '#e0a100' : undefined }}>
-                  {semProduto.length}
-                </strong>{' '}
-                sem produto
+              <p className="app-label" style={{ marginTop: 0 }}>
+                Foto
               </p>
-
-              {linhas.map((l) => (
-                <LinhaItem
-                  key={l.item.indice}
-                  linha={l}
-                  aoMudar={(m) => atualizarLinha(l.item.indice, m)}
-                />
-              ))}
-
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginTop: 12,
-                }}
-              >
-                <span>
-                  Total dos itens: <strong>{formatarBRL(centavos(Math.round(totalNota)))}</strong>
-                </span>
-                <button
-                  type="button"
-                  className="app-btn app-btn-grande"
-                  disabled={gravando || semProduto.length > 0 || prontas.length === 0}
-                  onClick={() => void darEntrada()}
-                >
-                  {gravando ? 'Gravando...' : `Dar entrada (${prontas.length})`}
-                </button>
-              </div>
-              {semProduto.length > 0 && (
-                <p className="app-aviso" style={{ marginTop: 8 }}>
-                  Ligue ou cadastre os {semProduto.length} item(ns) sem produto (ou marque
-                  "Ignorar") pra liberar a entrada.
-                </p>
-              )}
+              <img src={previa} alt="Nota" style={{ width: '100%', borderRadius: 8 }} />
             </div>
+          )}
+
+          <div className="app-card" style={{ margin: 0 }}>
+            <div className="app-grid-2">
+              <label>
+                <span className="app-label">Fornecedor</span>
+                <input
+                  className="app-input"
+                  value={fornecedor}
+                  onChange={(e) => setFornecedor(e.target.value)}
+                />
+              </label>
+              <label>
+                <span className="app-label">Numero da nota</span>
+                <input
+                  className="app-input"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <p style={{ margin: '12px 0' }}>
+              <strong>{linhas.length}</strong> item(ns) lido(s) -{' '}
+              <strong>{ativas.length - semProduto.length}</strong> ligado(s) a produto,{' '}
+              <strong style={{ color: semProduto.length ? '#e0a100' : undefined }}>
+                {semProduto.length}
+              </strong>{' '}
+              sem produto
+            </p>
+
+            {linhas.map((l) => (
+              <LinhaItem
+                key={l.item.indice}
+                linha={l}
+                aoMudar={(m) => atualizarLinha(l.item.indice, m)}
+              />
+            ))}
+
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 12,
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: 12,
+              }}
+            >
+              <span>
+                Total dos itens: <strong>{formatarBRL(centavos(Math.round(totalNota)))}</strong>
+              </span>
+              <button
+                type="button"
+                className="app-btn app-btn-grande"
+                disabled={gravando || semProduto.length > 0 || prontas.length === 0}
+                onClick={() => void darEntrada()}
+              >
+                {gravando ? 'Gravando...' : `Dar entrada (${prontas.length})`}
+              </button>
+            </div>
+            {semProduto.length > 0 && (
+              <p className="app-aviso" style={{ marginTop: 8 }}>
+                Ligue ou cadastre os {semProduto.length} item(ns) sem produto (ou marque "Ignorar")
+                pra liberar a entrada.
+              </p>
+            )}
           </div>
-        )}
-      </main>
-    </div>
+        </div>
+      )}
+    </>
   )
 }
 

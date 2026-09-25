@@ -11,6 +11,7 @@ import {
   type SessaoCaixaApi,
   type UsuarioSessao,
 } from './api'
+import { ConteudoEntradaNota } from './EntradaNotaTela'
 import { TopoApp } from './TopoApp'
 
 interface Props {
@@ -18,7 +19,7 @@ interface Props {
   readonly aoSair: () => void
 }
 
-type Aba = 'estoque' | 'caixa' | 'relatorio'
+type Aba = 'estoque' | 'nota' | 'caixa' | 'relatorio'
 
 /**
  * Painel admin mobile (HANDOFF.md secao 12 -- combinado com o cliente):
@@ -45,6 +46,7 @@ export function PainelMobileTela({ usuario, aoSair }: Props) {
       <main className="app-shell mobile-shell" style={{ maxWidth: 480 }}>
         <div className="app-card">
           {aba === 'estoque' && <AbaEstoquePorVoz />}
+          {aba === 'nota' && <ConteudoEntradaNota compacto />}
           {aba === 'caixa' && <AbaCaixa />}
           {aba === 'relatorio' && <AbaRelatorio />}
         </div>
@@ -59,6 +61,15 @@ export function PainelMobileTela({ usuario, aoSair }: Props) {
         >
           <span className="mobile-tab-icone">{'\u{1F4E6}'}</span>
           Estoque
+        </button>
+        <button
+          type="button"
+          className="mobile-tab-btn"
+          aria-pressed={aba === 'nota'}
+          onClick={() => setAba('nota')}
+        >
+          <span className="mobile-tab-icone">{'\u{1F9FE}'}</span>
+          Nota
         </button>
         <button
           type="button"
