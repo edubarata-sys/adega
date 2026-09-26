@@ -271,6 +271,43 @@ function IconeBusca() {
     </svg>
   )
 }
+/** Icones de traco dourado das categorias (como no layout; emoji fica feio no Windows). */
+const TRACOS_CATEGORIA: Record<string, string> = {
+  Todos: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+  Bebidas: 'M10 2h4v4l1.5 3v12a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V9L10 6zM8.5 12h7',
+  Espetinhos: 'M4 20 20 4M7 13l4 4M10 10l4 4M13 7l4 4',
+  Cervejas:
+    'M5 7h10v13H5zM15 10h2.5a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5H15M5 7a2.5 2.5 0 0 1 5-1 2.5 2.5 0 0 1 5 1M8 11v6M12 11v6',
+  Destilados: 'M5 8h14l-1.5 12h-11zM6 13h12',
+  'Drinks e ices': 'M4 4h16l-8 9zM12 13v7M8 20h8M15 4l3-2',
+  Energéticos: 'M13 2 5 14h6l-1 8 8-12h-6z',
+  'Vinhos e espumantes': 'M8 2h8v5a4 4 0 0 1-8 0zM12 11v9M8 21h8M8 5h8',
+  'Refrigerantes, água e sucos': 'M6 7h12l-1.5 14h-9zM12 7l2-5h3M6 11h12',
+  Gelo: 'M12 3 20 7.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12 4 7.5',
+  'Petiscos, doces e outros':
+    'M4 11h16l-2 9H6zM7 11c0-3 2-5 5-5s5 2 5 5M9 6c0-1.5 1.3-3 3-3s3 1.5 3 3',
+}
+
+function IconeCategoria({ nome }: { readonly nome: string }) {
+  const d = TRACOS_CATEGORIA[nome]
+  if (!d) return null
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={d} />
+    </svg>
+  )
+}
+
 function IconeLixo() {
   return (
     <svg
@@ -948,7 +985,7 @@ export function LojaTela() {
             aria-pressed={categoriaAtiva === c}
             onClick={() => setCategoriaAtiva(c)}
           >
-            {ICONE_CATEGORIA[c] && <i aria-hidden="true">{ICONE_CATEGORIA[c]}</i>}
+            <IconeCategoria nome={c} />
             {c}
           </button>
         ))}

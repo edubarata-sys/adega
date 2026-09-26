@@ -1617,3 +1617,24 @@ body,
     font-size: 0.9rem;
   }
 }
+
+/* --- barra de categorias (26/09): icones de traco, quebra linha no computador --- */
+.loja-pill svg {
+  color: var(--gold);
+  flex: none;
+}
+.loja-pill[aria-pressed='true'] svg {
+  color: #1a1405;
+}
+@media (min-width: 900px) {
+  .loja-categorias {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}
+@media (max-width: 899px) {
+  .loja-categorias {
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+}
