@@ -1,5 +1,5 @@
 import { aplicarMovimentoEstoque, schema } from '@adega/db'
-import { and, desc, eq, ilike, inArray, isNotNull, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, ne, sql, type SQL } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { DependenciasApp } from '../dependencias'
@@ -7,6 +7,28 @@ import { criarRequireAuth } from '../seguranca/autenticacao'
 
 const LIMITE_BUSCA_DESCRICAO = 20
 const LIMITE_CADASTRO_PADRAO = 200
+
+const COM_ACENTO = 'áàâãäéèêëíìîïóòôõöúùûüçñ'
+const SEM_ACENTO = 'aaaaaeeeeiiiiooooouuuucn'
+
+/**
+ * Busca por nome do jeito que o balconista digita (26/09): cada PALAVRA tem
+ * que aparecer no nome, em qualquer ordem, sem ligar pra acento nem
+ * maiuscula. Antes era o texto inteiro colado ("monster manga" nao achava
+ * "MONSTER MANGA MANGO LOKO"; "energetico" nao achava "ENERGÉTICO").
+ * `%`/`_` digitados viram literais em vez de curinga.
+ */
+export function condicaoBuscaPorNome(termo: string): SQL | undefined {
+  const palavras = termo
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/\s+/)
+    .filter(Boolean)
+  if (palavras.length === 0) return undefined
+  const nome = sql`translate(lower(${schema.produtos.descricao}), ${COM_ACENTO}, ${SEM_ACENTO})`
+  return and(...palavras.map((p) => sql`${nome} like ${`%${p.replace(/[\\%_]/g, '\\$&')}%`}`))
+}
 
 /**
  * Forma comum devolvida por todas as rotas de produto: dados de cadastro +
@@ -145,12 +167,7 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
         // `ativo` no WHERE (nao depois do LIMIT): filtrar depois deixava
         // produtos inativos ocuparem vagas das 20 e esconderem ativos.
         // `%`/`_` digitados viram literais em vez de curinga do ILIKE.
-        .where(
-          and(
-            ilike(schema.produtos.descricao, `%${termo.replace(/[\\%_]/g, '\\$&')}%`),
-            eq(schema.produtos.ativo, true),
-          ),
-        )
+        .where(and(condicaoBuscaPorNome(termo), eq(schema.produtos.ativo, true)))
         .orderBy(schema.produtos.descricao)
         .limit(LIMITE_BUSCA_DESCRICAO)
 
@@ -169,8 +186,7 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
     { preHandler: requireAuth },
     async (request, reply) => {
       const termo = (request.query.q ?? '').trim()
-      const condicoes =
-        termo.length > 0 ? ilike(schema.produtos.descricao, `%${termo}%`) : undefined
+      const condicoes = termo.length > 0 ? condicaoBuscaPorNome(termo) : undefined
 
       const produtos = await deps.db
         .select(selecaoProdutoComSaldo())

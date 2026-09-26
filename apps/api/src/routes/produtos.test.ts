@@ -73,6 +73,22 @@ describe('GET /produtos?q=', () => {
     expect(corpo.produtos[0]?.descricao).toBe('Cerveja Pilsen Lata 350ml')
   })
 
+  it('busca por palavras em qualquer ordem, sem acento', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    for (const q of ['lata cerveja', 'CERVÉJA pilsen', 'pilsen 350']) {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/produtos?q=${encodeURIComponent(q)}`,
+        cookies,
+      })
+      expect(res.statusCode).toBe(200)
+      const corpo = res.json() as { produtos: Array<Record<string, unknown>> }
+      expect(corpo.produtos.map((p) => p.descricao)).toContain('Cerveja Pilsen Lata 350ml')
+    }
+  })
+
   it('recusa termo de busca curto demais', async () => {
     await seedDados(ctx.db)
     const app = novoApp()
