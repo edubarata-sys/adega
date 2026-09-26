@@ -90,6 +90,7 @@ export function SangriaModal({ aoFechar }: Props) {
     if (!produto) return setErro('Escolha o produto.')
     const qtd = Number(qtdTexto.replace(',', '.'))
     if (!(qtd > 0)) return setErro('Informe a quantidade.')
+    if (!descricao.trim()) return setErro('Escreva quem pegou / o motivo.')
     setSalvando(true)
     try {
       await ajustarEstoque(
@@ -258,7 +259,9 @@ export function SangriaModal({ aoFechar }: Props) {
           </label>
         )}
         <label style={{ display: 'block', marginTop: 8 }}>
-          <span className="app-label">Motivo (opcional)</span>
+          <span className="app-label">
+            {tipo === 'produto' ? 'Quem pegou / motivo (obrigatorio)' : 'Motivo (opcional)'}
+          </span>
           <input
             className="app-input"
             placeholder="Ex.: deposito no banco, troco, pagamento do gelo"
