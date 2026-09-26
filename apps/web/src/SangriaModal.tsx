@@ -1,6 +1,14 @@
 import { centavos, formatarBRL } from '@adega/core'
 import { useState } from 'react'
-import { ErroRequisicao, registrarMovimentoCaixa, type TipoMovimentoCaixaApi } from './api'
+import {
+  ajustarEstoque,
+  buscarProdutoPorEan,
+  buscarProdutosPorDescricao,
+  ErroRequisicao,
+  registrarMovimentoCaixa,
+  type ProdutoApi,
+  type TipoMovimentoCaixaApi,
+} from './api'
 
 interface Props {
   readonly aoFechar: () => void
@@ -41,19 +49,75 @@ function textoParaCentavos(t: string): number | null {
  * esses movimentos do valor esperado -- faltava a tela.
  */
 export function SangriaModal({ aoFechar }: Props) {
-  const [tipo, setTipo] = useState<TipoMovimentoCaixaApi>('sangria')
+  const [tipo, setTipo] = useState<TipoMovimentoCaixaApi | 'produto'>('sangria')
   const [valorTexto, setValorTexto] = useState('')
   const [descricao, setDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
 
+  // --- Retirada de PRODUTO sem pagamento (consumo da casa, alguem pegou):
+  // nao mexe no dinheiro do caixa, so baixa o estoque com o motivo.
+  const [termo, setTermo] = useState('')
+  const [resultados, setResultados] = useState<ProdutoApi[]>([])
+  const [produto, setProduto] = useState<ProdutoApi | null>(null)
+  const [qtdTexto, setQtdTexto] = useState('1')
+
+  async function buscarProduto() {
+    setErro(null)
+    const t = termo.trim()
+    if (!t) return
+    try {
+      if (/^\d{8,14}$/.test(t)) {
+        const r = await buscarProdutoPorEan(t)
+        const lista = r.produtos && r.produtos.length > 1 ? r.produtos : [r.produto]
+        setResultados(lista)
+        if (lista.length === 1) setProduto(lista[0]!)
+      } else {
+        const r = await buscarProdutosPorDescricao(t)
+        setResultados(r.produtos)
+        if (r.produtos.length === 0) setErro('Nenhum produto encontrado.')
+      }
+    } catch (e) {
+      setErro(e instanceof ErroRequisicao ? e.message : 'Falha na busca.')
+    }
+    setTermo('')
+  }
+
+  async function confirmarProduto() {
+    setErro(null)
+    setOk(null)
+    if (!produto) return setErro('Escolha o produto.')
+    const qtd = Number(qtdTexto.replace(',', '.'))
+    if (!(qtd > 0)) return setErro('Informe a quantidade.')
+    if (!descricao.trim()) return setErro('Escreva quem pegou / o motivo.')
+    setSalvando(true)
+    try {
+      await ajustarEstoque(
+        produto.id,
+        'perda',
+        qtd,
+        `RETIRADA SEM PAGAMENTO: ${descricao.trim()}`.slice(0, 200),
+      )
+      setOk(`Retirada registrada: ${qtd} x ${produto.descricao} (${descricao.trim()}).`)
+      setProduto(null)
+      setResultados([])
+      setQtdTexto('1')
+      setDescricao('')
+    } catch (e) {
+      setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao registrar.')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   async function confirmar() {
+    if (tipo === 'produto') return confirmarProduto()
     setErro(null)
     setOk(null)
     const valor = textoParaCentavos(valorTexto)
     if (valor === null) return setErro('Informe um valor maior que zero.')
-    const rotulo = TIPOS.find((t) => t.tipo === tipo)!.rotulo
+    const rotulo = TIPOS.find((t) => t.tipo === tipo)?.rotulo ?? tipo
     setSalvando(true)
     try {
       await registrarMovimentoCaixa({ tipo, valor, descricao: descricao.trim() || rotulo })
@@ -99,24 +163,102 @@ export function SangriaModal({ aoFechar }: Props) {
               {t.rotulo}
             </button>
           ))}
+          <button
+            type="button"
+            className="app-pill-btn"
+            aria-pressed={tipo === 'produto'}
+            onClick={() => setTipo('produto')}
+          >
+            Produto (sem pagar)
+          </button>
         </div>
         <p style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
-          {TIPOS.find((t) => t.tipo === tipo)!.ajuda}
+          {tipo === 'produto'
+            ? 'Alguem pegou produto sem pagar (consumo da casa). Nao mexe no dinheiro do caixa: so tira do estoque, com o motivo.'
+            : TIPOS.find((t) => t.tipo === tipo)!.ajuda}
         </p>
-        <label style={{ display: 'block' }}>
-          <span className="app-label">Valor (R$)</span>
-          <input
-            className="app-input app-input-lg"
-            autoFocus
-            inputMode="decimal"
-            placeholder="0,00"
-            value={valorTexto}
-            onChange={(e) => setValorTexto(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void confirmar()}
-          />
-        </label>
+        {tipo === 'produto' ? (
+          <>
+            {produto ? (
+              <p style={{ margin: '4px 0' }}>
+                Produto: <strong>{produto.descricao}</strong>{' '}
+                <button
+                  type="button"
+                  className="app-btn-ghost"
+                  style={{ padding: '0 6px' }}
+                  onClick={() => setProduto(null)}
+                >
+                  trocar
+                </button>
+              </p>
+            ) : (
+              <>
+                <input
+                  className="app-input app-input-lg"
+                  autoFocus
+                  placeholder="Passe a pistola ou digite o nome e Enter"
+                  value={termo}
+                  onChange={(e) => setTermo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                      e.preventDefault()
+                      void buscarProduto()
+                    }
+                  }}
+                />
+                {resultados.length > 0 && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: 4,
+                      marginTop: 6,
+                      maxHeight: 180,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {resultados.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="app-btn-outline"
+                        style={{ textAlign: 'left' }}
+                        onClick={() => setProduto(p)}
+                      >
+                        {p.descricao}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+            <label style={{ display: 'block', marginTop: 8 }}>
+              <span className="app-label">Quantidade</span>
+              <input
+                className="app-input"
+                inputMode="decimal"
+                value={qtdTexto}
+                onChange={(e) => setQtdTexto(e.target.value)}
+              />
+            </label>
+          </>
+        ) : (
+          <label style={{ display: 'block' }}>
+            <span className="app-label">Valor (R$)</span>
+            <input
+              className="app-input app-input-lg"
+              autoFocus
+              inputMode="decimal"
+              placeholder="0,00"
+              value={valorTexto}
+              onChange={(e) => setValorTexto(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void confirmar()}
+            />
+          </label>
+        )}
         <label style={{ display: 'block', marginTop: 8 }}>
-          <span className="app-label">Motivo (opcional)</span>
+          <span className="app-label">
+            {tipo === 'produto' ? 'Quem pegou / motivo (obrigatorio)' : 'Motivo (opcional)'}
+          </span>
           <input
             className="app-input"
             placeholder="Ex.: deposito no banco, troco, pagamento do gelo"
