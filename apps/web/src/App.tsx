@@ -3,6 +3,7 @@ import { AbrirCaixaTela } from './AbrirCaixaTela'
 import { caixaAtual, eu, logout, type SessaoCaixaApi, type UsuarioSessao } from './api'
 import { FecharCaixaTela } from './FecharCaixaTela'
 import { LoginTela } from './LoginTela'
+import { LojaTela } from './LojaTela'
 import { PainelMobileTela } from './PainelMobileTela'
 import { RelatoriosTela } from './RelatoriosTela'
 import { EntradaNotaTela } from './EntradaNotaTela'
@@ -69,6 +70,10 @@ function PainelMobileApp() {
 }
 
 export function App() {
+  // Loja online publica (sem login) -- vitrine + pedido pelo WhatsApp.
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/loja')) {
+    return <LojaTela />
+  }
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/mobile')) {
     return <PainelMobileApp />
   }
