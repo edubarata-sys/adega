@@ -90,16 +90,18 @@ export function SangriaModal({ aoFechar }: Props) {
     if (!produto) return setErro('Escolha o produto.')
     const qtd = Number(qtdTexto.replace(',', '.'))
     if (!(qtd > 0)) return setErro('Informe a quantidade.')
-    if (!descricao.trim()) return setErro('Escreva quem pegou / o motivo.')
     setSalvando(true)
     try {
       await ajustarEstoque(
         produto.id,
         'perda',
         qtd,
-        `RETIRADA SEM PAGAMENTO: ${descricao.trim()}`.slice(0, 200),
+        (descricao.trim()
+          ? `RETIRADA SEM PAGAMENTO: ${descricao.trim()}`
+          : 'RETIRADA SEM PAGAMENTO'
+        ).slice(0, 200),
       )
-      setOk(`Retirada registrada: ${qtd} x ${produto.descricao} (${descricao.trim()}).`)
+      setOk(`Retirada sem pagamento registrada: ${qtd} x ${produto.descricao}.`)
       setProduto(null)
       setResultados([])
       setQtdTexto('1')
@@ -174,7 +176,7 @@ export function SangriaModal({ aoFechar }: Props) {
         </div>
         <p style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
           {tipo === 'produto'
-            ? 'Alguem pegou produto sem pagar (consumo da casa). Nao mexe no dinheiro do caixa: so tira do estoque, com o motivo.'
+            ? 'Produto que saiu sem pagamento. Nao mexe no dinheiro do caixa: so tira do estoque.'
             : TIPOS.find((t) => t.tipo === tipo)!.ajuda}
         </p>
         {tipo === 'produto' ? (
@@ -256,9 +258,7 @@ export function SangriaModal({ aoFechar }: Props) {
           </label>
         )}
         <label style={{ display: 'block', marginTop: 8 }}>
-          <span className="app-label">
-            {tipo === 'produto' ? 'Quem pegou / motivo (obrigatorio)' : 'Motivo (opcional)'}
-          </span>
+          <span className="app-label">Motivo (opcional)</span>
           <input
             className="app-input"
             placeholder="Ex.: deposito no banco, troco, pagamento do gelo"
