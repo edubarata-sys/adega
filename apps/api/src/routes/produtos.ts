@@ -351,6 +351,47 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
   )
 
   /**
+   * Codigo de barras direto do caixa (26/09): produto achado pelo NOME e sem
+   * codigo -> o operador passa a pistola e o codigo fica gravado, sem sair da
+   * venda. So preenche quando o produto ainda NAO tem codigo (trocar um
+   * codigo existente continua sendo na tela de cadastro).
+   */
+  app.patch<{ Params: { id: string }; Body: { ean?: unknown } }>(
+    '/produtos/:id/ean',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const ean = typeof request.body?.ean === 'string' ? request.body.ean.trim() : ''
+      if (!/^\d{8,14}$/.test(ean)) {
+        return reply
+          .code(400)
+          .send({ status: 'erro', motivo: 'Codigo de barras invalido (8 a 14 numeros).' })
+      }
+      const [existente] = await deps.db
+        .select({ id: schema.produtos.id, ean: schema.produtos.ean })
+        .from(schema.produtos)
+        .where(eq(schema.produtos.id, request.params.id))
+      if (!existente) {
+        return reply.code(404).send({ status: 'erro', motivo: 'Produto nao encontrado.' })
+      }
+      if (existente.ean) {
+        return reply
+          .code(409)
+          .send({ status: 'erro', motivo: `Este produto ja tem o codigo ${existente.ean}.` })
+      }
+      await deps.db
+        .update(schema.produtos)
+        .set({ ean, atualizadoEm: new Date() })
+        .where(eq(schema.produtos.id, existente.id))
+      const [produto] = await deps.db
+        .select(selecaoProdutoComSaldo())
+        .from(schema.produtos)
+        .leftJoin(schema.estoqueSaldos, eq(schema.estoqueSaldos.produtoId, schema.produtos.id))
+        .where(eq(schema.produtos.id, existente.id))
+      return reply.send({ produto })
+    },
+  )
+
+  /**
    * PASSO 10 (estoque manual): entrada de mercadoria, perda/quebra, ou
    * ajuste de contagem fisica -- os tres casos que uma loja real precisa
    * fora do fluxo automatico de venda. Sempre pelo mesmo ledger

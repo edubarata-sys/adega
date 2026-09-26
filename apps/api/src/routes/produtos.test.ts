@@ -433,3 +433,44 @@ describe('GET /produtos/eans', () => {
     expect(res.statusCode).toBe(401)
   })
 })
+
+describe('PATCH /produtos/:id/ean', () => {
+  it('grava o codigo em produto sem codigo e recusa sobrescrever', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    const criado = await app.inject({
+      method: 'POST',
+      url: '/produtos',
+      cookies,
+      payload: { descricao: 'Produto Sem Codigo Teste', precoVenda: 500 },
+    })
+    expect(criado.statusCode).toBeLessThan(300)
+    const id = (criado.json() as { produto: { id: string } }).produto.id
+
+    const invalido = await app.inject({
+      method: 'PATCH',
+      url: `/produtos/${id}/ean`,
+      cookies,
+      payload: { ean: 'abc' },
+    })
+    expect(invalido.statusCode).toBe(400)
+
+    const ok = await app.inject({
+      method: 'PATCH',
+      url: `/produtos/${id}/ean`,
+      cookies,
+      payload: { ean: '7890000000017' },
+    })
+    expect(ok.statusCode).toBe(200)
+    expect((ok.json() as { produto: { ean: string } }).produto.ean).toBe('7890000000017')
+
+    const denovo = await app.inject({
+      method: 'PATCH',
+      url: `/produtos/${id}/ean`,
+      cookies,
+      payload: { ean: '7890000000024' },
+    })
+    expect(denovo.statusCode).toBe(409)
+  })
+})

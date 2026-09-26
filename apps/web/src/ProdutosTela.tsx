@@ -67,6 +67,37 @@ const FORMULARIO_VAZIO: FormularioProduto = {
  * a Fase 1 (so tinha baixa automatica na venda, nenhuma forma de cadastrar
  * ou editar um produto pela interface).
  */
+/** Palavras que nao ajudam a achar duplicado (tamanho, embalagem, categoria). */
+const PALAVRAS_COMUNS = new Set([
+  'LATA',
+  'LITRO',
+  'LITROS',
+  'LONG',
+  'NECK',
+  'GARRAFA',
+  'COM',
+  'SEM',
+  'SABOR',
+  'SABORES',
+  'UNIDADE',
+  'PACOTE',
+  'CERVEJA',
+  'ENERGETICO',
+  'REFRIGERANTE',
+  'BEBIDA',
+  'DRINK',
+  'DOSE',
+])
+
+function palavrasChave(descricao: string): string[] {
+  return descricao
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/)
+    .filter((p) => p.length >= 3 && !/^\d/.test(p) && !PALAVRAS_COMUNS.has(p))
+}
+
 export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
   const [termo, setTermo] = useState('')
   const [produtos, setProdutos] = useState<ProdutoCadastroApi[]>([])
@@ -77,6 +108,10 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
   const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
+  // Aviso de duplicado (26/09): ao criar produto, mostra os ja cadastrados
+  // com nome parecido -- o pessoal recadastrava produto que so estava sem
+  // codigo de barras. Nao bloqueia: so sugere editar o existente.
+  const [parecidos, setParecidos] = useState<ProdutoCadastroApi[]>([])
   const [form, setForm] = useState<FormularioProduto>(FORMULARIO_VAZIO)
   const campoEanRef = useRef<HTMLInputElement>(null)
   const campoDescricaoRef = useRef<HTMLInputElement>(null)
@@ -158,6 +193,43 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
         return
       }
       setErroLista(e instanceof ErroRequisicao ? e.message : 'Falha ao buscar o codigo.')
+    }
+  }
+
+  useEffect(() => {
+    if (editandoId) {
+      setParecidos([])
+      return
+    }
+    const chave = palavrasChave(form.descricao).slice(0, 2)
+    if (chave.length === 0) {
+      setParecidos([])
+      return
+    }
+    let vivo = true
+    const t = setTimeout(() => {
+      listarProdutosCadastro(chave.join(' '))
+        .then(({ produtos: lista }) => {
+          if (vivo) setParecidos(lista.filter((p) => p.ativo).slice(0, 5))
+        })
+        .catch(() => undefined)
+    }, 400)
+    return () => {
+      vivo = false
+      clearTimeout(t)
+    }
+  }, [form.descricao, editandoId])
+
+  function usarExistente(produto: ProdutoCadastroApi) {
+    const eanLido = form.ean.trim()
+    selecionarParaEditar(produto)
+    setTermo(produto.descricao)
+    void carregarProdutos(produto.descricao)
+    if (eanLido && !produto.ean) {
+      setForm((f) => ({ ...f, ean: eanLido }))
+      setMensagemOk(
+        `Código ${eanLido} colocado em ${produto.descricao}. Confira e clique em "Salvar alteracoes".`,
+      )
     }
   }
 
@@ -417,6 +489,37 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
                   className="app-input"
                 />
               </label>
+
+              {!editandoId && parecidos.length > 0 && (
+                <div className="pdv-sem-codigo" role="status">
+                  <p>
+                    <strong>JÁ EXISTE PRODUTO PARECIDO</strong> — se for o mesmo, edite ele em vez
+                    de criar outro{form.ean.trim() ? ' (o código lido vai junto)' : ''}:
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {parecidos.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="app-btn-outline"
+                        style={{
+                          textAlign: 'left',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}
+                        onClick={() => usarExistente(p)}
+                      >
+                        <span>
+                          {p.descricao}
+                          {!p.ean && <small style={{ color: 'var(--gold)' }}> · sem código</small>}
+                        </span>
+                        <span>R$ {centavosParaTexto(p.precoVenda)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <label>
                 <span className="app-label">Descricao curta (PDV, opcional)</span>

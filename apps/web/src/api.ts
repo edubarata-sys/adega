@@ -231,6 +231,14 @@ export function criarProduto(dados: DadosProdutoForm) {
   })
 }
 
+/** Grava o codigo de barras num produto que ainda nao tem (direto do caixa). */
+export function gravarCodigoDeBarras(produtoId: string, ean: string) {
+  return requisitar<{ produto: ProdutoApi }>(`/produtos/${encodeURIComponent(produtoId)}/ean`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ean }),
+  })
+}
+
 export function atualizarProduto(id: string, dados: DadosProdutoForm) {
   return requisitar<{ produto: ProdutoCadastroApi }>(`/produtos/${encodeURIComponent(id)}`, {
     method: 'PUT',

@@ -1638,3 +1638,36 @@ body,
     mask-image: linear-gradient(90deg, #000 88%, transparent);
   }
 }
+
+/* --- PDV: aviso de produto sem codigo de barras (26/09) --- */
+.pdv-sem-codigo {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  background: #231a08;
+}
+.pdv-sem-codigo p {
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+.pdv-sem-codigo strong {
+  color: var(--gold);
+}
+.pdv-sem-codigo small {
+  color: var(--text-muted);
+}
+.pdv-sem-codigo-linha {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pdv-sem-codigo-linha .app-input {
+  flex: 1;
+  min-width: 0;
+}
+.pdv-codigo-ok {
+  margin: 8px 0 0;
+  color: var(--green);
+  font-weight: 600;
+}

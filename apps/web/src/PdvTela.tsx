@@ -7,6 +7,7 @@ import {
   buscarProdutosPorDescricao,
   buscarRecibo,
   ErroRequisicao,
+  gravarCodigoDeBarras,
   listarEansAtivos,
   registrarVenda,
   type ProdutoApi,
@@ -111,6 +112,14 @@ export function PdvTela({
   const [etapa, setEtapa] = useState<'itens' | 'pagamento'>('itens')
   const [ultimoItem, setUltimoItem] = useState<ProdutoApi | null>(null)
   const [fotoUltimo, setFotoUltimo] = useState<string | null>(null)
+  // Aviso NAO bloqueante (pedido 26/09): produto achado pelo nome e sem
+  // codigo de barras -> "se quiser, edite agora" passando a pistola ali.
+  const [semCodigo, setSemCodigo] = useState<ProdutoApi | null>(null)
+  const [codigoNovo, setCodigoNovo] = useState('')
+  const [salvandoCodigo, setSalvandoCodigo] = useState(false)
+  const [msgCodigo, setMsgCodigo] = useState<{ ok: boolean; texto: string } | null>(null)
+  /** Ultimo codigo lido que nao existia: ja vem preenchido no aviso. */
+  const codigoPendenteRef = useRef<string | null>(null)
 
   // Foto do ultimo item (Open Food Facts, ver fotoProduto.ts). Nunca trava a
   // venda: o item ja entrou no carrinho; a foto aparece se e quando chegar.
@@ -234,6 +243,14 @@ export function PdvTela({
     const qtd = quantidade ?? multiplicadorRef.current
     definirMultiplicador(1)
     setUltimoItem(produto)
+    setMsgCodigo(null)
+    if (!produto.ean) {
+      setSemCodigo(produto)
+      setCodigoNovo(codigoPendenteRef.current ?? '')
+    } else {
+      setSemCodigo(null)
+      codigoPendenteRef.current = null
+    }
     setCarrinho((atual) =>
       adicionarAoCarrinho(atual, {
         produtoId: produto.id,
@@ -302,6 +319,7 @@ export function PdvTela({
               `Codigo ${texto} nao esta cadastrado em nenhum produto. Digite o nome do produto e aperte Enter para buscar.`,
             )
             setEanNaoCadastrado(texto)
+            codigoPendenteRef.current = texto
             return
           }
           throw e
@@ -325,6 +343,39 @@ export function PdvTela({
       setBuscando(false)
       eanRef.current?.focus()
     }
+  }
+
+  async function salvarCodigo() {
+    if (!semCodigo) return
+    const ean = codigoNovo.trim()
+    if (!/^\d{8,14}$/.test(ean)) {
+      setMsgCodigo({
+        ok: false,
+        texto: 'Código inválido: passe a pistola na embalagem ou digite de 8 a 14 números.',
+      })
+      return
+    }
+    setSalvandoCodigo(true)
+    try {
+      await gravarCodigoDeBarras(semCodigo.id, ean)
+      setMsgCodigo({ ok: true, texto: `Pronto! Código ${ean} gravado em ${semCodigo.descricao}.` })
+      setSemCodigo(null)
+      codigoPendenteRef.current = null
+      eanRef.current?.focus()
+    } catch (e) {
+      setMsgCodigo({
+        ok: false,
+        texto: e instanceof Error ? e.message : 'Falha ao gravar o código.',
+      })
+    } finally {
+      setSalvandoCodigo(false)
+    }
+  }
+
+  function fecharAvisoCodigo() {
+    setSemCodigo(null)
+    setMsgCodigo(null)
+    eanRef.current?.focus()
   }
 
   function cancelarTimerLeitura() {
@@ -605,6 +656,48 @@ export function PdvTela({
                   </button>
                 ))}
               </div>
+            )}
+            {semCodigo && (
+              <div className="pdv-sem-codigo" role="status">
+                <p>
+                  <strong>PRODUTO SEM CÓDIGO DE BARRAS</strong> — se quiser, edite agora.
+                  <br />
+                  <small>
+                    {semCodigo.descricao}: clique no campo abaixo e passe a pistola na embalagem.
+                  </small>
+                </p>
+                <div className="pdv-sem-codigo-linha">
+                  <input
+                    className="app-input"
+                    inputMode="numeric"
+                    placeholder="Código de barras"
+                    value={codigoNovo}
+                    onChange={(e) => setCodigoNovo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        void salvarCodigo()
+                      } else if (e.key === 'Escape') {
+                        fecharAvisoCodigo()
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="app-btn"
+                    disabled={salvandoCodigo}
+                    onClick={() => void salvarCodigo()}
+                  >
+                    {salvandoCodigo ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button type="button" className="app-btn-ghost" onClick={fecharAvisoCodigo}>
+                    Agora não
+                  </button>
+                </div>
+              </div>
+            )}
+            {msgCodigo && (
+              <p className={msgCodigo.ok ? 'pdv-codigo-ok' : 'app-msg-erro'}>{msgCodigo.texto}</p>
             )}
           </div>
 
