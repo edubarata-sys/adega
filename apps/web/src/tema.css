@@ -1063,3 +1063,59 @@ body,
     height: 260px;
   }
 }
+
+/* --- ajustes visuais da loja (25/09) --- */
+.loja {
+  --lateral: max(16px, calc((100% - 1148px) / 2));
+}
+.loja .app-pill-btn {
+  text-transform: none;
+}
+.loja-categorias {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.loja-categorias::-webkit-scrollbar {
+  display: none;
+}
+.loja-hero,
+.loja-espetinho {
+  margin-left: var(--lateral);
+  margin-right: var(--lateral);
+}
+.loja-filtros {
+  padding-left: var(--lateral);
+  padding-right: var(--lateral);
+}
+.loja-grade {
+  max-width: none;
+  padding-left: var(--lateral);
+  padding-right: var(--lateral);
+}
+.loja-topo {
+  padding-left: var(--lateral);
+  padding-right: var(--lateral);
+}
+.loja-rodape {
+  padding-left: var(--lateral);
+  padding-right: var(--lateral);
+}
+.loja-foto-vazia {
+  flex-direction: column;
+  gap: 4px;
+  background: radial-gradient(circle at 50% 35%, #2a200c, #15110a);
+}
+.loja-foto-icone {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+.loja-foto-vazia small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0 6px;
+}
+.loja-card h3 {
+  font-weight: 600;
+}

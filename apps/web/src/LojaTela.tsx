@@ -50,6 +50,58 @@ const ORDEM_CATEGORIAS = [
   'Petiscos, doces e outros',
 ]
 
+const ICONE_CATEGORIA: Record<string, string> = {
+  Espetinhos: '🍢',
+  Cervejas: '🍺',
+  Destilados: '🥃',
+  'Drinks e ices': '🍹',
+  Energéticos: '⚡',
+  'Vinhos e espumantes': '🍷',
+  'Refrigerantes, água e sucos': '🥤',
+  Gelo: '🧊',
+  'Petiscos, doces e outros': '🍿',
+}
+
+const MINUSCULAS = new Set([
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'com',
+  'e',
+  'ou',
+  'sem',
+  'no',
+  'na',
+  'em',
+  'por',
+  'a',
+  'o',
+])
+const SIGLAS = new Set(['IPA', 'GLT', 'H2O', 'KS', 'LM', 'JC', 'TNT', 'XL', 'UN', 'BR', 'X'])
+
+/** "BALY LATA TRADICIONAL 473 ML" -> "Baly Lata Tradicional 473 ml". */
+function nomeBonito(nome: string): string {
+  return nome
+    .toLowerCase()
+    .split(/\s+/)
+    .map((p, i) => {
+      const up = p.toUpperCase()
+      if (SIGLAS.has(up)) return up
+      if (/^\d/.test(p))
+        return p.replace(
+          /(\d)(ml|l|kg|g|lts?)$/i,
+          (_m, d: string, u: string) => d + u.toLowerCase(),
+        )
+      if (/^(ml|l|kg|g|lts?|un|und)$/.test(p)) return p
+      if (/^c\/\d+/.test(p)) return p.toUpperCase()
+      if (i > 0 && MINUSCULAS.has(p)) return p
+      return p.charAt(0).toUpperCase() + p.slice(1)
+    })
+    .join(' ')
+}
+
 const brl = (c: number) => formatarBRL(centavos(Math.round(c)))
 const hm = (m: number) =>
   m >= 24 * 60
@@ -101,7 +153,15 @@ function gravarJson(chave: string, valor: unknown) {
   }
 }
 
-function Foto({ ean, nome }: { readonly ean: string | null; readonly nome: string }) {
+function Foto({
+  ean,
+  nome,
+  categoria,
+}: {
+  readonly ean: string | null
+  readonly nome: string
+  readonly categoria: string
+}) {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
     let vivo = true
@@ -116,7 +176,8 @@ function Foto({ ean, nome }: { readonly ean: string | null; readonly nome: strin
         <img src={url} alt={nome} loading="lazy" />
       ) : (
         <span className="loja-foto-vazia" aria-hidden="true">
-          {nome.trim().charAt(0)}
+          <span className="loja-foto-icone">{ICONE_CATEGORIA[categoria] ?? '🛒'}</span>
+          <small>{categoria}</small>
         </span>
       )}
     </div>
@@ -197,7 +258,7 @@ export function LojaTela() {
     const linhas = [
       '*NOVO PEDIDO - SITE* 🛒',
       '',
-      ...itens.map((x) => `• ${x.q}x ${x.p.nome} — ${brl(x.q * x.p.preco)}`),
+      ...itens.map((x) => `• ${x.q}x ${nomeBonito(x.p.nome)} — ${brl(x.q * x.p.preco)}`),
       '',
       `*Total dos produtos: ${brl(total)}*`,
       '',
@@ -303,6 +364,7 @@ export function LojaTela() {
               aria-pressed={categoriaAtiva === c}
               onClick={() => setCategoriaAtiva(c)}
             >
+              {c !== 'Todos' && ICONE_CATEGORIA[c] ? `${ICONE_CATEGORIA[c]} ` : ''}
               {c}
             </button>
           ))}
@@ -319,8 +381,8 @@ export function LojaTela() {
           const q = carrinho[p.id] ?? 0
           return (
             <article key={p.id} className="loja-card">
-              <Foto ean={p.ean} nome={p.nome} />
-              <h3>{p.nome}</h3>
+              <Foto ean={p.ean} nome={p.nome} categoria={p.categoria} />
+              <h3>{nomeBonito(p.nome)}</h3>
               <p className="loja-preco">{brl(p.preco)}</p>
               {q === 0 ? (
                 <button type="button" className="app-btn loja-add" onClick={() => mudar(p.id, 1)}>
@@ -385,7 +447,7 @@ export function LojaTela() {
             {itens.length === 0 && <p>Carrinho vazio.</p>}
             {itens.map((x) => (
               <div key={x.p.id} className="loja-linha">
-                <span className="loja-linha-nome">{x.p.nome}</span>
+                <span className="loja-linha-nome">{nomeBonito(x.p.nome)}</span>
                 <div className="loja-qtd loja-qtd-peq">
                   <button type="button" onClick={() => mudar(x.p.id, -1)}>
                     −
