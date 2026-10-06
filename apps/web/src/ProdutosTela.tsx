@@ -12,6 +12,7 @@ import {
   type CategoriaApi,
   type DadosProdutoForm,
   type ProdutoCadastroApi,
+  type ViaProduto,
 } from './api'
 import { TopoApp } from './TopoApp'
 
@@ -47,6 +48,8 @@ interface FormularioProduto {
   readonly estoqueMinimoTexto: string
   readonly estoqueInicialTexto: string
   readonly ativo: boolean
+  /** '' = automatico pelo nome (so no cadastro novo). */
+  readonly via: '' | ViaProduto
 }
 
 const FORMULARIO_VAZIO: FormularioProduto = {
@@ -60,6 +63,7 @@ const FORMULARIO_VAZIO: FormularioProduto = {
   estoqueMinimoTexto: '',
   estoqueInicialTexto: '',
   ativo: true,
+  via: '',
 }
 
 /**
@@ -246,6 +250,7 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
       estoqueMinimoTexto: String(produto.estoqueMinimo ?? 0),
       estoqueInicialTexto: '',
       ativo: produto.ativo,
+      via: produto.via ?? 'adega',
     })
     setErroForm(null)
     setMensagemOk(null)
@@ -287,6 +292,7 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
       custoMedio,
       estoqueMinimo,
       ativo: form.ativo,
+      via: form.via || undefined,
     }
 
     setSalvando(true)
@@ -562,6 +568,21 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
                   </select>
                 </label>
               </div>
+              <label>
+                <span className="app-label">Caixa no relatorio</span>
+                <select
+                  value={form.via}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, via: e.target.value as '' | ViaProduto }))
+                  }
+                  className="app-input"
+                >
+                  {!editandoId && <option value="">Automatico (pelo nome)</option>}
+                  <option value="adega">Adega (bebidas e cigarro)</option>
+                  <option value="outros">Outros (mercearia e afins)</option>
+                  <option value="espetinho">Espetinho</option>
+                </select>
+              </label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="text"

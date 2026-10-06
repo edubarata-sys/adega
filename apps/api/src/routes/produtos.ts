@@ -1,5 +1,6 @@
+import { classificarVia, VIAS } from '@adega/core'
 import { aplicarMovimentoEstoque, schema } from '@adega/db'
-import { and, desc, eq, inArray, isNotNull, ne, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { DependenciasApp } from '../dependencias'
@@ -48,6 +49,7 @@ function selecaoProdutoComSaldo() {
     custoMedio: schema.produtos.custoMedio,
     estoqueMinimo: schema.produtos.estoqueMinimo,
     ativo: schema.produtos.ativo,
+    via: schema.produtos.via,
     estoqueAtual: schema.estoqueSaldos.quantidade,
   } as const
 }
@@ -68,6 +70,9 @@ const ProdutoBodySchema = z.object({
   /** Numero (nao string) -- vira `String()` soh na hora de gravar, igual ao
    * padrao ja usado em vendas.ts/estoque.ts pra colunas `numeric`. */
   estoqueMinimo: z.number().nonnegative().optional(),
+  /** Via do caixa nos relatorios (02/10/2026). Ausente: no cadastro novo,
+   * sugerida pelo nome (classificarVia); na edicao, mantem a atual. */
+  via: z.enum(VIAS).optional(),
 })
 
 const NovoProdutoBodySchema = ProdutoBodySchema.extend({
@@ -265,6 +270,7 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
           precoVenda: corpo.precoVenda,
           custoMedio: corpo.custoMedio ?? 0,
           estoqueMinimo: String(corpo.estoqueMinimo ?? 0),
+          via: corpo.via ?? classificarVia(corpo.descricao),
           criadoEm: agora,
           atualizadoEm: agora,
         })
@@ -336,6 +342,7 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
           custoMedio: corpo.custoMedio ?? 0,
           estoqueMinimo: String(corpo.estoqueMinimo ?? 0),
           ativo: corpo.ativo ?? true,
+          ...(corpo.via ? { via: corpo.via } : {}),
           atualizadoEm: new Date(),
         })
         .where(eq(schema.produtos.id, produtoId))

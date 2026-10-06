@@ -1,10 +1,15 @@
 import {
   centavos,
   dataLojaIso,
+  dividirVendaPorVia,
   fimDoDiaLoja,
   gerarXmlRelatorioVendas,
   inicioDoDiaLoja,
+  ROTULO_VIA,
+  VIAS,
+  type FormaPagamento,
   type VendaRelatorio,
+  type ViaProduto,
 } from '@adega/core'
 import { schema } from '@adega/db'
 import { and, asc, count, eq, gte, inArray, lte } from 'drizzle-orm'
@@ -26,25 +31,48 @@ const RE_DATA = /^\d{4}-\d{2}-\d{2}$/
 const QuerySchema = z.object({
   inicio: z.string().regex(RE_DATA, 'inicio precisa ser AAAA-MM-DD'),
   fim: z.string().regex(RE_DATA, 'fim precisa ser AAAA-MM-DD'),
+  /** 02/10/2026: 'geral' (tudo junto, padrao) ou uma das vias do caixa. */
+  via: z.enum(['geral', ...VIAS]).default('geral'),
 })
 
-async function buscarVendasDoPeriodo(
+type FiltroVia = 'geral' | ViaProduto
+
+interface PagamentoDaVenda {
+  forma: FormaPagamento
+  terminal: string | null
+  /** Pago menos troco: o que ficou na loja. */
+  valorLiquido: number
+}
+
+interface VendaFiltrada {
+  id: string
+  numero: number | null
+  ocorridoEm: Date
+  total: number
+  pagamentos: PagamentoDaVenda[]
+}
+
+/**
+ * Vendas pagas do periodo, ja recortadas pela via. Em 'geral' cada venda
+ * vem inteira; numa via, cada venda vem so com a parte dela (itens daquela
+ * via, total e pagamentos rateados na proporcao -- ver dividirVendaPorVia),
+ * e venda sem item daquela via fica de fora. A soma das tres vias e sempre
+ * igual ao geral.
+ */
+async function buscarVendasFiltradas(
   deps: DependenciasApp,
   inicio: Date,
   fim: Date,
-): Promise<VendaRelatorio[]> {
-  const linhas = await deps.db
+  via: FiltroVia,
+): Promise<VendaFiltrada[]> {
+  const vendasPeriodo = await deps.db
     .select({
-      vendaId: schema.vendas.id,
+      id: schema.vendas.id,
       numero: schema.vendas.numero,
       ocorridoEm: schema.vendas.ocorridoEm,
       total: schema.vendas.total,
-      pagamentoForma: schema.pagamentos.forma,
-      pagamentoValor: schema.pagamentos.valor,
-      pagamentoTerminal: schema.pagamentos.terminalApelido,
     })
     .from(schema.vendas)
-    .innerJoin(schema.pagamentos, eq(schema.pagamentos.vendaId, schema.vendas.id))
     .where(
       and(
         eq(schema.vendas.status, 'paga'),
@@ -53,28 +81,88 @@ async function buscarVendasDoPeriodo(
       ),
     )
     .orderBy(asc(schema.vendas.ocorridoEm))
+  const ids = vendasPeriodo.map((v) => v.id)
+  if (ids.length === 0) return []
 
-  const porVenda = new Map<string, VendaRelatorio>()
-  for (const linha of linhas) {
-    const existente = porVenda.get(linha.vendaId)
-    const pagamento = {
-      forma: linha.pagamentoForma,
-      valor: centavos(linha.pagamentoValor),
-      terminalApelido: linha.pagamentoTerminal,
-    }
-    if (existente) {
-      ;(existente.pagamentos as (typeof pagamento)[]).push(pagamento)
-    } else {
-      porVenda.set(linha.vendaId, {
-        vendaId: linha.vendaId,
-        numero: linha.numero,
-        ocorridoEm: linha.ocorridoEm,
-        total: centavos(linha.total),
-        pagamentos: [pagamento],
-      })
-    }
+  const pags = await deps.db
+    .select({
+      vendaId: schema.pagamentos.vendaId,
+      forma: schema.pagamentos.forma,
+      valor: schema.pagamentos.valor,
+      troco: schema.pagamentos.troco,
+      terminal: schema.pagamentos.terminalApelido,
+    })
+    .from(schema.pagamentos)
+    .where(inArray(schema.pagamentos.vendaId, ids))
+  const pagsPorVenda = new Map<string, PagamentoDaVenda[]>()
+  for (const p of pags) {
+    const lista = pagsPorVenda.get(p.vendaId) ?? []
+    lista.push({ forma: p.forma, terminal: p.terminal, valorLiquido: p.valor - p.troco })
+    pagsPorVenda.set(p.vendaId, lista)
   }
-  return [...porVenda.values()]
+
+  if (via === 'geral') {
+    return vendasPeriodo.map((v) => ({ ...v, pagamentos: pagsPorVenda.get(v.id) ?? [] }))
+  }
+
+  const itens = await deps.db
+    .select({
+      vendaId: schema.vendaItens.vendaId,
+      via: schema.produtos.via,
+      totalItem: schema.vendaItens.totalItem,
+    })
+    .from(schema.vendaItens)
+    .innerJoin(schema.produtos, eq(schema.produtos.id, schema.vendaItens.produtoId))
+    .where(inArray(schema.vendaItens.vendaId, ids))
+  const itensPorVenda = new Map<string, { via: ViaProduto; totalItem: number }[]>()
+  for (const it of itens) {
+    const lista = itensPorVenda.get(it.vendaId) ?? []
+    lista.push({ via: it.via, totalItem: it.totalItem })
+    itensPorVenda.set(it.vendaId, lista)
+  }
+
+  const resultado: VendaFiltrada[] = []
+  for (const v of vendasPeriodo) {
+    const pagamentos = pagsPorVenda.get(v.id) ?? []
+    const partes = dividirVendaPorVia(
+      centavos(v.total),
+      (itensPorVenda.get(v.id) ?? []).map((i) => ({
+        via: i.via,
+        totalItem: centavos(i.totalItem),
+      })),
+      pagamentos.map((p) => ({ pagamento: p, valorLiquido: centavos(p.valorLiquido) })),
+    )
+    const parte = partes.find((p) => p.via === via)
+    if (!parte) continue
+    resultado.push({
+      id: v.id,
+      numero: v.numero,
+      ocorridoEm: v.ocorridoEm,
+      total: parte.total,
+      pagamentos: parte.pagamentos.map((p) => ({ ...p.pagamento, valorLiquido: p.valor })),
+    })
+  }
+  return resultado
+}
+
+async function buscarVendasDoPeriodo(
+  deps: DependenciasApp,
+  inicio: Date,
+  fim: Date,
+  via: FiltroVia,
+): Promise<VendaRelatorio[]> {
+  const vendas = await buscarVendasFiltradas(deps, inicio, fim, via)
+  return vendas.map((v) => ({
+    vendaId: v.id,
+    numero: v.numero,
+    ocorridoEm: v.ocorridoEm,
+    total: centavos(v.total),
+    pagamentos: v.pagamentos.map((p) => ({
+      forma: p.forma,
+      valor: centavos(p.valorLiquido),
+      terminalApelido: p.terminal,
+    })),
+  }))
 }
 
 /**
@@ -88,22 +176,15 @@ async function buscarVendasDoPeriodo(
  * custo e faco uma media". Produto sem custo cadastrado (0) fica FORA do
  * calculo de lucro/margem e e contado a parte, pra nao inflar o lucro.
  */
-export async function montarResumoPeriodo(deps: DependenciasApp, inicio: Date, fim: Date) {
-  const vendasPeriodo = await deps.db
-    .select({
-      id: schema.vendas.id,
-      ocorridoEm: schema.vendas.ocorridoEm,
-      total: schema.vendas.total,
-    })
-    .from(schema.vendas)
-    .where(
-      and(
-        eq(schema.vendas.status, 'paga'),
-        gte(schema.vendas.ocorridoEm, inicio),
-        lte(schema.vendas.ocorridoEm, fim),
-      ),
-    )
-    .orderBy(asc(schema.vendas.ocorridoEm))
+export async function montarResumoPeriodo(
+  deps: DependenciasApp,
+  inicio: Date,
+  fim: Date,
+  via: FiltroVia = 'geral',
+) {
+  // Venda recortada pela via (ver buscarVendasFiltradas): total e
+  // pagamentos ja sao so a parte daquela via.
+  const vendasPeriodo = await buscarVendasFiltradas(deps, inicio, fim, via)
 
   const ids = vendasPeriodo.map((v) => v.id)
   const itens =
@@ -120,19 +201,12 @@ export async function montarResumoPeriodo(deps: DependenciasApp, inicio: Date, f
           })
           .from(schema.vendaItens)
           .innerJoin(schema.produtos, eq(schema.produtos.id, schema.vendaItens.produtoId))
-          .where(inArray(schema.vendaItens.vendaId, ids))
-  const pags =
-    ids.length === 0
-      ? []
-      : await deps.db
-          .select({
-            forma: schema.pagamentos.forma,
-            valor: schema.pagamentos.valor,
-            troco: schema.pagamentos.troco,
-            terminal: schema.pagamentos.terminalApelido,
-          })
-          .from(schema.pagamentos)
-          .where(inArray(schema.pagamentos.vendaId, ids))
+          .where(
+            via === 'geral'
+              ? inArray(schema.vendaItens.vendaId, ids)
+              : and(inArray(schema.vendaItens.vendaId, ids), eq(schema.produtos.via, via)),
+          )
+  const pags = vendasPeriodo.flatMap((v) => v.pagamentos)
 
   // Por dia (no fuso da loja).
   const porDiaMapa = new Map<string, { data: string; vendas: number; total: number }>()
@@ -213,7 +287,7 @@ export async function montarResumoPeriodo(deps: DependenciasApp, inicio: Date, f
       valor: 0,
       quantidade: 0,
     }
-    linha.valor += p.valor - p.troco
+    linha.valor += p.valorLiquido
     linha.quantidade += 1
     porPagamentoMapa.set(chave, linha)
   }
@@ -256,7 +330,7 @@ export function registrarRotasRelatorios(app: FastifyInstance, deps: Dependencia
   const requireAuth = criarRequireAuth(deps.sessionSecret)
   const requireAdmin = criarRequireAuth(deps.sessionSecret, { perfil: 'admin' })
 
-  app.get<{ Querystring: { inicio?: string; fim?: string } }>(
+  app.get<{ Querystring: { inicio?: string; fim?: string; via?: string } }>(
     '/relatorios/resumo',
     { preHandler: requireAdmin },
     async (request, reply) => {
@@ -275,12 +349,17 @@ export function registrarRotasRelatorios(app: FastifyInstance, deps: Dependencia
           .code(400)
           .send({ status: 'erro', motivo: '"fim" nao pode ser anterior a "inicio".' })
       }
-      const dados = await montarResumoPeriodo(deps, periodoInicio, periodoFim)
-      return reply.send({ inicio: parse.data.inicio, fim: parse.data.fim, ...dados })
+      const dados = await montarResumoPeriodo(deps, periodoInicio, periodoFim, parse.data.via)
+      return reply.send({
+        inicio: parse.data.inicio,
+        fim: parse.data.fim,
+        via: parse.data.via,
+        ...dados,
+      })
     },
   )
 
-  app.get<{ Querystring: { inicio?: string; fim?: string } }>(
+  app.get<{ Querystring: { inicio?: string; fim?: string; via?: string } }>(
     '/relatorios/vendas.xml',
     { preHandler: requireAuth },
     async (request, reply) => {
@@ -292,7 +371,7 @@ export function registrarRotasRelatorios(app: FastifyInstance, deps: Dependencia
           detalhes: parse.error.flatten(),
         })
       }
-      const { inicio, fim } = parse.data
+      const { inicio, fim, via } = parse.data
       // Dias no horario da LOJA (Brasilia), nao do servidor (UTC): antes,
       // o "dia 24" ia das 21h do dia 23 as 20h59 do dia 24 e as vendas da
       // noite caiam no dia seguinte. `fim` e inclusivo o dia inteiro.
@@ -304,15 +383,17 @@ export function registrarRotasRelatorios(app: FastifyInstance, deps: Dependencia
           .send({ status: 'erro', motivo: '"fim" nao pode ser anterior a "inicio".' })
       }
 
-      const vendas = await buscarVendasDoPeriodo(deps, periodoInicio, periodoFim)
-      const xml = gerarXmlRelatorioVendas({ periodoInicio, periodoFim, vendas })
+      const vendas = await buscarVendasDoPeriodo(deps, periodoInicio, periodoFim, via)
+      const rotulo = via === 'geral' ? 'Geral' : ROTULO_VIA[via]
+      const xml = gerarXmlRelatorioVendas({ periodoInicio, periodoFim, vendas, via: rotulo })
+      const sufixo = via === 'geral' ? '' : `-${via}`
 
       return reply
         .code(200)
         .header('content-type', 'application/xml; charset=utf-8')
         .header(
           'content-disposition',
-          `attachment; filename="relatorio-vendas-${inicio}-a-${fim}.xml"`,
+          `attachment; filename="relatorio-vendas${sufixo}-${inicio}-a-${fim}.xml"`,
         )
         .send(xml)
     },

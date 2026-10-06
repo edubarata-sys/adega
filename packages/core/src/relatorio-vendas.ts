@@ -1,5 +1,6 @@
 import type { Centavos } from './dinheiro'
 import { ZERO, formatarBRL, somar } from './dinheiro'
+import { dataLojaIso, formatarIsoLoja } from './fuso-loja'
 import type { FormaPagamento } from './venda'
 
 /**
@@ -23,6 +24,9 @@ import type { FormaPagamento } from './venda'
 
 export interface PagamentoRelatorio {
   readonly forma: FormaPagamento
+  /** Valor que FICOU na loja: pago menos troco. (⚠️ CORRECAO 02/10/2026:
+   * antes ia o valor entregue pelo cliente, e a linha "dinheiro" somava o
+   * troco -- as formas de pagamento nao batiam com o total.) */
   readonly valor: Centavos
   /** Apelido da maquininha (ex.: "Maquininha 1"), so relevante pra
    * debito/credito. Nulo = nao informado ou nao se aplica. */
@@ -40,6 +44,9 @@ export interface VendaRelatorio {
 export interface DadosRelatorioVendas {
   readonly periodoInicio: Date
   readonly periodoFim: Date
+  /** Rotulo da via do relatorio ("Adega", "Outros", "Espetinho") ou
+   * "Geral" (tudo junto). Opcional pra compatibilidade. */
+  readonly via?: string
   readonly vendas: readonly VendaRelatorio[]
 }
 
@@ -115,12 +122,15 @@ function escaparXml(texto: string): string {
     .replace(/"/g, '&quot;')
 }
 
+// ⚠️ CORRECAO 02/10/2026: datas no horario da LOJA. Antes saiam em UTC --
+// o fim do periodo aparecia como o dia seguinte e venda das 22h caia no
+// outro dia.
 function formatarData(data: Date): string {
-  return data.toISOString().slice(0, 10)
+  return dataLojaIso(data)
 }
 
 function formatarDataHora(data: Date): string {
-  return data.toISOString()
+  return formatarIsoLoja(data)
 }
 
 /** Centavos crus (sem "R$") -- mais facil de importar numa planilha do que
@@ -141,7 +151,7 @@ export function gerarXmlRelatorioVendas(dados: DadosRelatorioVendas): string {
 
   const linhas: string[] = []
   linhas.push('<?xml version="1.0" encoding="UTF-8"?>')
-  linhas.push('<RelatorioVendas>')
+  linhas.push(dados.via ? `<RelatorioVendas via="${escaparXml(dados.via)}">` : '<RelatorioVendas>')
   linhas.push(
     `  <Periodo inicio="${formatarData(dados.periodoInicio)}" fim="${formatarData(dados.periodoFim)}" />`,
   )

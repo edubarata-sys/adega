@@ -1,6 +1,13 @@
 import { centavos, dataLojaIso, formatarBRL } from '@adega/core'
 import { useEffect, useMemo, useState } from 'react'
-import { buscarRelatorioResumo, ErroRequisicao, type RelatorioResumoApi } from './api'
+import {
+  baixarRelatorioXml,
+  buscarRelatorioResumo,
+  ErroRequisicao,
+  OPCOES_VIA,
+  type FiltroVia,
+  type RelatorioResumoApi,
+} from './api'
 import { TopoApp } from './TopoApp'
 
 interface Props {
@@ -73,12 +80,15 @@ export function RelatoriosTela({ aoVoltar }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [ordem, setOrdem] = useState<OrdemProdutos>('quantidade')
   const [filtroProduto, setFiltroProduto] = useState('')
+  // Via do caixa (02/10/2026): Geral = tudo junto; ou so Adega/Outros/Espetinho.
+  const [via, setVia] = useState<FiltroVia>('geral')
+  const [baixandoXml, setBaixandoXml] = useState(false)
 
-  async function carregar(de: string, ate: string) {
+  async function carregar(de: string, ate: string, v: FiltroVia = via) {
     setCarregando(true)
     setErro(null)
     try {
-      setDados(await buscarRelatorioResumo(de, ate))
+      setDados(await buscarRelatorioResumo(de, ate, v))
     } catch (e) {
       setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao carregar o relatorio.')
     } finally {
@@ -90,6 +100,23 @@ export function RelatoriosTela({ aoVoltar }: Props) {
     void carregar(inicio, fim)
     // So no primeiro carregamento; depois, pelos botoes.
   }, [])
+
+  function escolherVia(v: FiltroVia) {
+    setVia(v)
+    void carregar(inicio, fim, v)
+  }
+
+  async function baixarXml() {
+    setBaixandoXml(true)
+    setErro(null)
+    try {
+      await baixarRelatorioXml(inicio, fim, via)
+    } catch (e) {
+      setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao baixar o XML.')
+    } finally {
+      setBaixandoXml(false)
+    }
+  }
 
   function escolherAtalho(a: Exclude<Atalho, 'personalizado'>) {
     const [de, ate] = periodoDoAtalho(a)
@@ -182,11 +209,48 @@ export function RelatoriosTela({ aoVoltar }: Props) {
             >
               {carregando ? 'Carregando...' : 'Ver relatorio'}
             </button>
+            <button
+              type="button"
+              className="app-btn-outline"
+              disabled={baixandoXml || !inicio || !fim}
+              onClick={() => void baixarXml()}
+            >
+              {baixandoXml ? 'Gerando...' : 'Baixar XML'}
+            </button>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8,
+              alignItems: 'center',
+              marginTop: 10,
+            }}
+          >
+            <span className="app-label" style={{ margin: 0 }}>
+              Caixa:
+            </span>
+            <div className="app-pill-group">
+              {OPCOES_VIA.map((o) => (
+                <button
+                  key={o.valor}
+                  type="button"
+                  className="app-pill-btn"
+                  aria-pressed={via === o.valor}
+                  disabled={carregando}
+                  onClick={() => escolherVia(o.valor)}
+                >
+                  {o.rotulo}
+                </button>
+              ))}
+            </div>
           </div>
           {dados && (
             <p style={{ color: 'var(--text-muted)', margin: '10px 0 0' }}>
               Periodo: {formatarData(dados.inicio)}
               {dados.fim !== dados.inicio ? ` a ${formatarData(dados.fim)}` : ''}
+              {' -- '}
+              {OPCOES_VIA.find((o) => o.valor === via)?.rotulo}
             </p>
           )}
           {erro && <p className="app-msg-erro">{erro}</p>}

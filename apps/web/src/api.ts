@@ -187,8 +187,20 @@ export interface ProdutoCadastroApi {
   readonly custoMedio: number
   readonly estoqueMinimo: number | string | null
   readonly ativo: boolean
+  /** Via do caixa nos relatorios (02/10/2026). */
+  readonly via?: ViaProduto
   readonly estoqueAtual: number | string | null
 }
+
+/** Vias do caixa: o balcao vende tudo junto, so os relatorios dividem. */
+export type ViaProduto = 'adega' | 'outros' | 'espetinho'
+export type FiltroVia = 'geral' | ViaProduto
+export const OPCOES_VIA: readonly { valor: FiltroVia; rotulo: string }[] = [
+  { valor: 'geral', rotulo: 'Geral' },
+  { valor: 'adega', rotulo: 'Adega' },
+  { valor: 'outros', rotulo: 'Outros' },
+  { valor: 'espetinho', rotulo: 'Espetinho' },
+]
 
 export interface CategoriaApi {
   readonly id: string
@@ -222,6 +234,7 @@ export interface DadosProdutoForm {
   readonly estoqueMinimo?: number
   readonly estoqueInicial?: number
   readonly ativo?: boolean
+  readonly via?: ViaProduto
 }
 
 export function criarProduto(dados: DadosProdutoForm) {
@@ -264,9 +277,13 @@ export function ajustarEstoque(
  * tela em vez do navegador abrir um JSON cru numa aba nova se as datas
  * forem invalidas.
  */
-export async function baixarRelatorioXml(inicio: string, fim: string): Promise<void> {
+export async function baixarRelatorioXml(
+  inicio: string,
+  fim: string,
+  via: FiltroVia = 'geral',
+): Promise<void> {
   const res = await fetch(
-    `/api/relatorios/vendas.xml?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`,
+    `/api/relatorios/vendas.xml?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}&via=${via}`,
   )
   if (!res.ok) {
     const corpo = (await res.json().catch(() => ({}))) as ErroApi
@@ -276,7 +293,7 @@ export async function baixarRelatorioXml(inicio: string, fim: string): Promise<v
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `relatorio-vendas-${inicio}-a-${fim}.xml`
+  a.download = `relatorio-vendas${via === 'geral' ? '' : `-${via}`}-${inicio}-a-${fim}.xml`
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -320,9 +337,9 @@ export interface RelatorioResumoApi {
   }[]
 }
 
-export function buscarRelatorioResumo(inicio: string, fim: string) {
+export function buscarRelatorioResumo(inicio: string, fim: string, via: FiltroVia = 'geral') {
   return requisitar<RelatorioResumoApi>(
-    `/relatorios/resumo?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`,
+    `/relatorios/resumo?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}&via=${via}`,
   )
 }
 

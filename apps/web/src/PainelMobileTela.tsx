@@ -7,6 +7,8 @@ import {
   caixaAtual,
   ErroRequisicao,
   logout,
+  OPCOES_VIA,
+  type FiltroVia,
   type ProdutoApi,
   type SessaoCaixaApi,
   type UsuarioSessao,
@@ -151,21 +153,26 @@ function AbaRelatorio() {
   const [fim, setFim] = useState(hojeIso())
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
-  const [baixando, setBaixando] = useState(false)
+  // Qual XML esta sendo gerado agora (um botao por via do caixa).
+  const [baixando, setBaixando] = useState<FiltroVia | null>(null)
 
-  async function baixar() {
+  async function baixar(via: FiltroVia) {
     setErro(null)
     setOk(null)
-    setBaixando(true)
+    setBaixando(via)
     try {
-      await baixarRelatorioXml(inicio, fim)
-      setOk('XML baixado -- confere na pasta de downloads do celular.')
+      await baixarRelatorioXml(inicio, fim, via)
+      const rotulo = OPCOES_VIA.find((o) => o.valor === via)?.rotulo ?? via
+      setOk(`XML ${rotulo} baixado -- confere na pasta de downloads do celular.`)
     } catch (e) {
       setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao gerar o relatorio.')
     } finally {
-      setBaixando(false)
+      setBaixando(null)
     }
   }
+
+  // Adega, Outros e Espetinho primeiro (um pra cada contabilidade); Geral por ultimo.
+  const botoes = [...OPCOES_VIA.filter((o) => o.valor !== 'geral'), OPCOES_VIA[0]!]
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
@@ -190,14 +197,23 @@ function AbaRelatorio() {
           />
         </label>
       </div>
-      <button
-        type="button"
-        className="app-btn app-btn-grande"
-        disabled={baixando}
-        onClick={() => void baixar()}
-      >
-        {baixando ? 'Gerando...' : 'Baixar XML'}
-      </button>
+      <div className="app-grid-2">
+        {botoes.map((o) => (
+          <button
+            key={o.valor}
+            type="button"
+            className={o.valor === 'geral' ? 'app-btn-outline' : 'app-btn app-btn-grande'}
+            disabled={baixando !== null}
+            onClick={() => void baixar(o.valor)}
+          >
+            {baixando === o.valor ? 'Gerando...' : `XML ${o.rotulo}`}
+          </button>
+        ))}
+      </div>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+        Venda com itens de mais de um caixa (ex.: cerveja + espetinho) entra dividida: cada XML leva
+        so a parte dele, e o pagamento e repartido na mesma proporcao.
+      </p>
       {erro && <p className="app-msg-erro">{erro}</p>}
       {ok && <p className="app-msg-ok">{ok}</p>}
       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 0 }}>

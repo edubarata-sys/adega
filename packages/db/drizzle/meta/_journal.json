@@ -22,6 +22,13 @@
       "when": 1790370000000,
       "tag": "0002_ean_nao_unico",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791003302597,
+      "tag": "0003_via_produto",
+      "breakpoints": true
     }
   ]
 }

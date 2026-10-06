@@ -1,6 +1,7 @@
 import { dataLojaIso } from '@adega/core'
-import { SEED_CREDENCIAIS_DEV, SEED_IDS, seedDados } from '@adega/db'
+import { schema, SEED_CREDENCIAIS_DEV, SEED_IDS, seedDados } from '@adega/db'
 import { bancoDeTeste, limparTabelas } from '@adega/db/teste'
+import { eq } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from '../app'
 
@@ -161,5 +162,75 @@ describe('GET /relatorios/vendas.xml', () => {
 
     // A venda em dinheiro nao aparece em PorMaquininha (nao passou por nenhuma).
     expect(xml).not.toMatch(/PorMaquininha[\s\S]*dinheiro[\s\S]*<\/PorMaquininha>/)
+  })
+
+  it('divide por via (02/10/2026): venda misturada rateia total e pagamento, e as vias somam o geral', async () => {
+    await seedDados(ctx.db)
+    // Salgadinho fica como "espetinho" so pra este teste (o seed nao tem espetinho).
+    await ctx.db
+      .update(schema.produtos)
+      .set({ via: 'espetinho' })
+      .where(eq(schema.produtos.id, SEED_IDS.produtos.salgadinho))
+    await ctx.db
+      .update(schema.produtos)
+      .set({ via: 'adega' })
+      .where(eq(schema.produtos.id, SEED_IDS.produtos.cervejaLata))
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    await app.inject({
+      method: 'POST',
+      url: '/caixa/abrir',
+      payload: { fundoTroco: 10000 },
+      cookies,
+    })
+
+    // R$ 30 de cerveja + R$ 20 de "espetinho", pago com R$ 100 em dinheiro (troco R$ 50).
+    const venda = await app.inject({
+      method: 'POST',
+      url: '/vendas',
+      cookies,
+      payload: {
+        itens: [
+          { produtoId: SEED_IDS.produtos.cervejaLata, quantidade: 6, precoUnitario: 500 },
+          { produtoId: SEED_IDS.produtos.salgadinho, quantidade: 2, precoUnitario: 1000 },
+        ],
+        pagamentos: [{ forma: 'dinheiro', valor: 10000 }],
+      },
+    })
+    expect(venda.statusCode).toBe(201)
+
+    const hoje = hojeIso()
+    const baixar = (via: string) =>
+      app.inject({
+        method: 'GET',
+        url: `/relatorios/vendas.xml?inicio=${hoje}&fim=${hoje}&via=${via}`,
+        cookies,
+      })
+
+    const geral = (await baixar('geral')).body
+    expect(geral).toContain('<RelatorioVendas via="Geral">')
+    expect(geral).toContain('<Total valor="50.00"')
+    // Dinheiro sem o troco: bate com o total.
+    expect(geral).toContain('<Forma nome="dinheiro" quantidade="1" valor="50.00"')
+
+    const adega = await baixar('adega')
+    expect(adega.headers['content-disposition']).toContain('relatorio-vendas-adega-')
+    expect(adega.body).toContain('<Total valor="30.00"')
+    expect(adega.body).toContain('<Forma nome="dinheiro" quantidade="1" valor="30.00"')
+
+    const espetinho = (await baixar('espetinho')).body
+    expect(espetinho).toContain('<Total valor="20.00"')
+
+    const outros = (await baixar('outros')).body
+    expect(outros).toContain('<QuantidadeVendas>0</QuantidadeVendas>')
+
+    const resumo = await app.inject({
+      method: 'GET',
+      url: `/relatorios/resumo?inicio=${hoje}&fim=${hoje}&via=espetinho`,
+      cookies,
+    })
+    const corpo = resumo.json()
+    expect(corpo.resumo.totalVendido).toBe(2000)
+    expect(corpo.produtos).toHaveLength(1)
   })
 })

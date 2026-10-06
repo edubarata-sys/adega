@@ -56,6 +56,9 @@ export const tipoMovimentoCaixa = pgEnum('tipo_movimento_caixa', [
   'despesa',
   'entrada_avulsa',
 ])
+/** Via do caixa (02/10/2026): divide os RELATORIOS em Adega / Outros /
+ * Espetinho -- o balcao continua um caixa so. Ver @adega/core via-produto. */
+export const viaProduto = pgEnum('via_produto', ['adega', 'outros', 'espetinho'])
 export const perfilUsuario = pgEnum('perfil_usuario', ['admin', 'caixa'])
 
 export const usuarios = pgTable(
@@ -107,6 +110,8 @@ export const produtos = pgTable(
     custoMedio: dinheiro('custo_medio').notNull().default(0),
     estoqueMinimo: quantidade('estoque_minimo').notNull().default('0'),
     ativo: boolean().notNull().default(true),
+    /** Em qual relatorio (via) as vendas deste produto entram. */
+    via: viaProduto().notNull().default('adega'),
 
     // Fiscais: existem desde ja, ficam nulos na Fase 1 (arquitetura §11).
     ncm: text(),

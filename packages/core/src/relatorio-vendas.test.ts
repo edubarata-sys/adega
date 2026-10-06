@@ -22,8 +22,8 @@ function venda(parcial: Partial<VendaRelatorio> = {}): VendaRelatorio {
 
 function dados(vendas: readonly VendaRelatorio[]): DadosRelatorioVendas {
   return {
-    periodoInicio: new Date('2026-09-01T00:00:00.000Z'),
-    periodoFim: new Date('2026-09-30T23:59:59.000Z'),
+    periodoInicio: new Date('2026-09-01T00:00:00.000-03:00'),
+    periodoFim: new Date('2026-09-30T23:59:59.000-03:00'),
     vendas,
   }
 }
@@ -152,5 +152,20 @@ describe('gerarXmlRelatorioVendas', () => {
     const xml = gerarXmlRelatorioVendas(dados([]))
     expect(xml).toContain('<QuantidadeVendas>0</QuantidadeVendas>')
     expect(xml).toContain('valor="0.00"')
+  })
+})
+
+describe('gerarXmlRelatorioVendas -- horario da loja e via (02/10/2026)', () => {
+  it('venda das 22h40 sai com a data do proprio dia, no horario de Brasilia', () => {
+    const xml = gerarXmlRelatorioVendas(
+      dados([venda({ ocorridoEm: new Date('2026-09-30T22:40:00.000-03:00') })]),
+    )
+    expect(xml).toContain('data="2026-09-30T22:40:00-03:00"')
+    expect(xml).toContain('fim="2026-09-30"')
+  })
+
+  it('marca a via no elemento raiz', () => {
+    const xml = gerarXmlRelatorioVendas({ ...dados([]), via: 'Espetinho' })
+    expect(xml).toContain('<RelatorioVendas via="Espetinho">')
   })
 })

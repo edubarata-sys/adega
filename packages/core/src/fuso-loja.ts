@@ -25,6 +25,13 @@ export function dataLojaIso(instante: Date = new Date()): string {
   }).format(instante)
 }
 
+/** "2026-09-24T22:40:05-03:00": instante ISO 8601 no horario da loja (com o
+ * deslocamento explicito -- quem le sabe que e Brasilia, nao UTC). */
+export function formatarIsoLoja(instante: Date): string {
+  const local = new Date(instante.getTime() - 3 * 60 * 60 * 1000)
+  return `${local.toISOString().slice(0, 19)}${DESLOCAMENTO_LOJA}`
+}
+
 /** "24/09/2026 22:40" no horario da loja. */
 export function formatarDataHoraLoja(instante: Date): string {
   const partes = new Intl.DateTimeFormat('pt-BR', {
