@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AbrirCaixaTela } from './AbrirCaixaTela'
 import { caixaAtual, eu, logout, type SessaoCaixaApi, type UsuarioSessao } from './api'
 import { FecharCaixaTela } from './FecharCaixaTela'
+import { FinanceiroTela } from './FinanceiroTela'
 import { LoginTela } from './LoginTela'
 import { LojaTela } from './LojaTela'
 import { PainelMobileTela } from './PainelMobileTela'
@@ -18,6 +19,7 @@ type Estado =
   | { fase: 'fechando-caixa'; usuario: UsuarioSessao }
   | { fase: 'entrada-nota'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
   | { fase: 'relatorios'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
+  | { fase: 'financeiro'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi }
   | { fase: 'produtos'; usuario: UsuarioSessao; sessaoCaixa: SessaoCaixaApi; eanInicial?: string }
 
 /**
@@ -175,6 +177,16 @@ function AppPdv() {
     )
   }
 
+  if (estado.fase === 'financeiro') {
+    return (
+      <FinanceiroTela
+        aoVoltar={() =>
+          setEstado({ fase: 'pdv', usuario: estado.usuario, sessaoCaixa: estado.sessaoCaixa })
+        }
+      />
+    )
+  }
+
   if (estado.fase === 'produtos') {
     return (
       <ProdutosTela
@@ -210,6 +222,16 @@ function AppPdv() {
           ? () =>
               setEstado({
                 fase: 'relatorios',
+                usuario: estado.usuario,
+                sessaoCaixa: estado.sessaoCaixa,
+              })
+          : undefined
+      }
+      aoQuererFinanceiro={
+        estado.usuario.perfil === 'admin'
+          ? () =>
+              setEstado({
+                fase: 'financeiro',
                 usuario: estado.usuario,
                 sessaoCaixa: estado.sessaoCaixa,
               })

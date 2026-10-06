@@ -34,6 +34,8 @@ interface Props {
   readonly aoSair: () => void
   /** So vem preenchido pra administrador (relatorio mostra custo e lucro). */
   readonly aoQuererRelatorios?: () => void
+  /** So admin: financeiro pessoal do dono. */
+  readonly aoQuererFinanceiro?: () => void
   /** So admin: entrada de mercadoria por foto da nota. */
   readonly aoQuererEntradaNota?: () => void
   /** Com codigo: abre o cadastro ja em "Novo produto" com esse codigo. */
@@ -95,6 +97,7 @@ export function PdvTela({
   aoQuererFecharCaixa,
   aoSair,
   aoQuererRelatorios,
+  aoQuererFinanceiro,
   aoQuererEntradaNota,
   aoQuererGerenciarProdutos,
 }: Props) {
@@ -575,6 +578,11 @@ export function PdvTela({
         {aoQuererRelatorios && (
           <button type="button" className="app-btn-outline" onClick={aoQuererRelatorios}>
             Relatorios
+          </button>
+        )}
+        {aoQuererFinanceiro && (
+          <button type="button" className="app-btn-outline" onClick={aoQuererFinanceiro}>
+            Financeiro
           </button>
         )}
         <button type="button" className="app-btn-outline" onClick={() => setSangriaAberta(true)}>

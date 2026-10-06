@@ -43,7 +43,7 @@ export async function limparTabelas(client: PGlite) {
       audit_log, pagamentos, conciliacao_itens, conciliacao_lotes,
       venda_itens, vendas, caixa_movimentos, caixa_sessoes,
       estoque_saldos, estoque_movimentos, produtos, categorias,
-      dispositivos, usuarios
+      dispositivos, financeiro_lancamentos, financeiro_contas, usuarios
     RESTART IDENTITY CASCADE
   `)
 }

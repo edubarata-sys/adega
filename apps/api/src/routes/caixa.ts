@@ -10,6 +10,7 @@ import { schema } from '@adega/db'
 import type { FastifyInstance } from 'fastify'
 import type { DependenciasApp } from '../dependencias'
 import { criarRequireAuth } from '../seguranca/autenticacao'
+import { sincronizarEntradasCaixa } from './financeiro'
 
 const TIPOS_VALIDOS = new Set<string>(TIPOS_MOVIMENTO_CAIXA)
 
@@ -191,6 +192,11 @@ export function registrarRotasCaixa(app: FastifyInstance, deps: DependenciasApp)
         })
         .where(eq(schema.caixaSessoes.id, sessao.id))
         .returning()
+
+      // Financeiro pessoal do dono: a venda desta sessao entra como entrada.
+      // Falha aqui NUNCA pode impedir o fechamento -- o financeiro sincroniza
+      // de novo sozinho quando for aberto.
+      await sincronizarEntradasCaixa(deps.db).catch(() => 0)
 
       return { sessao: sessaoFechada, fechamento }
     },

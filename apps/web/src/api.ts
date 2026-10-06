@@ -408,3 +408,109 @@ export function registrarMovimentoCaixa(dados: {
     body: JSON.stringify(dados),
   })
 }
+
+// ---- Financeiro pessoal do dono (so admin) ----
+
+export type GrupoFinanceiro = 'adega' | 'casa' | 'outros'
+export type SituacaoContaApi = 'vencida' | 'vence-hoje' | 'a-vencer'
+
+export interface LancamentoFinanceiroApi {
+  readonly id: string
+  readonly tipo: 'entrada' | 'saida'
+  readonly grupo: GrupoFinanceiro
+  readonly valor: number
+  readonly descricao: string
+  readonly data: string
+  readonly origem: 'manual' | 'voz' | 'caixa' | 'conta'
+}
+
+export interface ContaFinanceiraApi {
+  readonly id: string
+  readonly tipo: 'boleto' | 'fixo'
+  readonly grupo: GrupoFinanceiro
+  readonly descricao: string
+  readonly valor: number
+  readonly vencimento: string | null
+  readonly diaVencimento: number | null
+  readonly codigoBarras: string | null
+}
+
+export interface ContaPendenteApi {
+  readonly contaId: string
+  readonly tipo: 'boleto' | 'fixo'
+  readonly grupo: GrupoFinanceiro
+  readonly descricao: string
+  readonly valor: number
+  readonly vencimento: string
+  readonly competencia: string
+  readonly situacao: SituacaoContaApi
+}
+
+export interface ResumoFinanceiroApi {
+  readonly mes: string
+  readonly hoje: string
+  readonly totais: {
+    readonly entradaAdega: number
+    readonly entradaOutros: number
+    readonly saidaAdega: number
+    readonly saidaCasa: number
+    readonly entradas: number
+    readonly saidas: number
+    readonly saldo: number
+  }
+  readonly lancamentos: readonly LancamentoFinanceiroApi[]
+  readonly contasPendentes: readonly ContaPendenteApi[]
+  readonly contas: readonly ContaFinanceiraApi[]
+}
+
+export function buscarResumoFinanceiro(mes: string) {
+  return requisitar<ResumoFinanceiroApi>(`/financeiro/resumo?mes=${encodeURIComponent(mes)}`)
+}
+
+export function lancarFinanceiro(dados: {
+  readonly tipo: 'entrada' | 'saida'
+  readonly grupo: GrupoFinanceiro
+  /** Centavos. */
+  readonly valor: number
+  readonly descricao: string
+  readonly data: string
+  readonly origem: 'manual' | 'voz'
+}) {
+  return requisitar<{ lancamento: LancamentoFinanceiroApi }>('/financeiro/lancamentos', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export function apagarLancamentoFinanceiro(id: string) {
+  return requisitar<{ status: 'ok' }>(`/financeiro/lancamentos/${id}`, { method: 'DELETE' })
+}
+
+export function criarContaFinanceira(dados: {
+  readonly tipo: 'boleto' | 'fixo'
+  readonly grupo: 'adega' | 'casa'
+  readonly descricao: string
+  readonly valor: number
+  readonly vencimento?: string
+  readonly diaVencimento?: number
+  readonly codigoBarras?: string
+}) {
+  return requisitar<{ conta: ContaFinanceiraApi }>('/financeiro/contas', {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}
+
+export function removerContaFinanceira(id: string) {
+  return requisitar<{ status: 'ok' }>(`/financeiro/contas/${id}`, { method: 'DELETE' })
+}
+
+export function pagarContaFinanceira(
+  id: string,
+  dados: { readonly competencia: string; readonly valor: number; readonly data: string },
+) {
+  return requisitar<{ lancamento: LancamentoFinanceiroApi }>(`/financeiro/contas/${id}/pagar`, {
+    method: 'POST',
+    body: JSON.stringify(dados),
+  })
+}

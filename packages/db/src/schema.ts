@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -348,4 +349,58 @@ export const auditLog = pgTable(
     criadoEm: agora().notNull().defaultNow(),
   },
   (t) => [index('audit_entidade_idx').on(t.entidade, t.entidadeId)],
+)
+
+/**
+ * Financeiro pessoal do dono (so admin). Separado do ledger da loja: aqui e o
+ * "dinheiro do Leandro". A venda do dia entra sozinha quando o caixa fecha
+ * (origem 'caixa', uma linha por sessao -- unique em sessao_caixa_id); os
+ * gastos ele marca como 'adega' ou 'casa'. Entrada de fora (ex.: seguro) vai
+ * como grupo 'outros'.
+ */
+export const finTipo = pgEnum('fin_tipo', ['entrada', 'saida'])
+export const finGrupo = pgEnum('fin_grupo', ['adega', 'casa', 'outros'])
+export const finOrigem = pgEnum('fin_origem', ['manual', 'voz', 'caixa', 'conta'])
+export const finTipoConta = pgEnum('fin_tipo_conta', ['boleto', 'fixo'])
+
+/** Boletos (uma vez) e gastos fixos mensais (todo mes). Pagar = lancamento com conta_id. */
+export const financeiroContas = pgTable('financeiro_contas', {
+  id: uuid().primaryKey(),
+  tipo: finTipoConta().notNull(),
+  grupo: finGrupo().notNull(),
+  descricao: text().notNull(),
+  /** Valor previsto em centavos (no fixo variavel, ajusta na hora de pagar). */
+  valor: dinheiro('valor').notNull(),
+  /** Boleto: data de vencimento. */
+  vencimento: date({ mode: 'string' }),
+  /** Fixo: dia do mes (1-31; meses curtos caem no ultimo dia). */
+  diaVencimento: integer(),
+  codigoBarras: text(),
+  ativo: boolean().notNull().default(true),
+  criadoEm: agora().notNull().defaultNow(),
+})
+
+export const financeiroLancamentos = pgTable(
+  'financeiro_lancamentos',
+  {
+    id: uuid().primaryKey(),
+    tipo: finTipo().notNull(),
+    grupo: finGrupo().notNull(),
+    valor: dinheiro('valor').notNull(),
+    descricao: text().notNull(),
+    /** Dia (calendario da loja). */
+    data: date({ mode: 'string' }).notNull(),
+    origem: finOrigem().notNull(),
+    sessaoCaixaId: uuid().references(() => caixaSessoes.id),
+    contaId: uuid().references(() => financeiroContas.id),
+    /** AAAA-MM da conta paga (fixo paga uma vez por mes). */
+    competencia: text(),
+    usuarioId: uuid().references(() => usuarios.id),
+    criadoEm: agora().notNull().defaultNow(),
+  },
+  (t) => [
+    index('fin_lanc_data_idx').on(t.data),
+    uniqueIndex('fin_lanc_sessao_uq').on(t.sessaoCaixaId),
+    uniqueIndex('fin_lanc_conta_comp_uq').on(t.contaId, t.competencia),
+  ],
 )

@@ -29,6 +29,13 @@
       "when": 1791003302597,
       "tag": "0003_via_produto",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791290501998,
+      "tag": "0004_financeiro_pessoal",
+      "breakpoints": true
     }
   ]
 }

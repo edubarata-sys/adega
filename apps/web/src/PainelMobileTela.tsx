@@ -14,14 +14,16 @@ import {
   type UsuarioSessao,
 } from './api'
 import { ConteudoEntradaNota } from './EntradaNotaTela'
+import { ConteudoFinanceiro } from './FinanceiroTela'
 import { TopoApp } from './TopoApp'
+import { construtorReconhecimentoDeVoz, type ResultadoReconhecimentoVoz } from './voz'
 
 interface Props {
   readonly usuario: UsuarioSessao
   readonly aoSair: () => void
 }
 
-type Aba = 'estoque' | 'nota' | 'caixa' | 'relatorio'
+type Aba = 'estoque' | 'nota' | 'caixa' | 'relatorio' | 'financeiro'
 
 /**
  * Painel admin mobile (HANDOFF.md secao 12 -- combinado com o cliente):
@@ -51,6 +53,7 @@ export function PainelMobileTela({ usuario, aoSair }: Props) {
           {aba === 'nota' && <ConteudoEntradaNota compacto />}
           {aba === 'caixa' && <AbaCaixa />}
           {aba === 'relatorio' && <AbaRelatorio />}
+          {aba === 'financeiro' && usuario.perfil === 'admin' && <ConteudoFinanceiro />}
         </div>
       </main>
 
@@ -91,6 +94,17 @@ export function PainelMobileTela({ usuario, aoSair }: Props) {
           <span className="mobile-tab-icone">{'\u{1F4C4}'}</span>
           Relatorio
         </button>
+        {usuario.perfil === 'admin' && (
+          <button
+            type="button"
+            className="mobile-tab-btn"
+            aria-pressed={aba === 'financeiro'}
+            onClick={() => setAba('financeiro')}
+          >
+            <span className="mobile-tab-icone">{'\u{1F4B5}'}</span>
+            Financas
+          </button>
+        )}
       </nav>
     </div>
   )
@@ -337,35 +351,6 @@ function interpretarComandoEstoque(textoOriginal: string): {
   }
 
   return { tipo, quantidade, termoProduto: restante.join(' ').trim() }
-}
-
-/**
- * Web Speech API nao tem tipos oficiais no TS/DOM lib -- declaramos so o
- * pedacinho que usamos (nao o `any` cru, que o lint bloqueia), com
- * checagem de suporte antes de usar (Safari/iOS nao tem).
- */
-interface ResultadoReconhecimentoVoz {
-  readonly results: {
-    readonly [indice: number]: { readonly [alternativa: number]: { readonly transcript: string } }
-  }
-}
-
-interface ReconhecimentoVoz {
-  lang: string
-  interimResults: boolean
-  maxAlternatives: number
-  onresult: ((evento: ResultadoReconhecimentoVoz) => void) | null
-  onerror: (() => void) | null
-  onend: (() => void) | null
-  start: () => void
-}
-
-function construtorReconhecimentoDeVoz(): (new () => ReconhecimentoVoz) | null {
-  const janela = window as unknown as {
-    SpeechRecognition?: new () => ReconhecimentoVoz
-    webkitSpeechRecognition?: new () => ReconhecimentoVoz
-  }
-  return janela.SpeechRecognition ?? janela.webkitSpeechRecognition ?? null
 }
 
 function formatarEstoque(valor: number | string | null): string {
