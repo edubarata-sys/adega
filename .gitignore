@@ -21,3 +21,6 @@ Thumbs.db
 
 # Banco do sistema antigo (Firebird) -- dados de cliente, fica so local
 legado/
+
+# Agenda da Diana (repositorio proprio: edubarata-sys/diana_manicure)
+diana/
