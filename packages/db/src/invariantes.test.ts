@@ -91,11 +91,11 @@ async function saldoDoCache(db: (typeof ctx)['db']): Promise<number> {
 }
 
 describe('invariante de saldo de estoque (schema real via pglite)', () => {
-  it('migration aplica sem erro e cria as 14 tabelas da Fase 1', async () => {
+  it('migration aplica sem erro e cria as 16 tabelas (14 da Fase 1 + 2 do financeiro pessoal)', async () => {
     const { rows } = await ctx.client.query<{ count: string }>(
       `SELECT count(*)::text FROM information_schema.tables WHERE table_schema = 'public'`,
     )
-    expect(Number(rows[0]?.count)).toBe(14)
+    expect(Number(rows[0]?.count)).toBe(16)
   })
 
   it('SUM(movimentos) == saldo apos sequencia em ordem cronologica', async () => {
