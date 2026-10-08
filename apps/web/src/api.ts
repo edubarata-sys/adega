@@ -48,11 +48,44 @@ export class ErroRequisicao extends Error {
   }
 }
 
-async function requisitar<T>(caminho: string, opcoes?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${caminho}`, {
-    ...opcoes,
-    headers: { 'Content-Type': 'application/json', ...opcoes?.headers },
-  })
+/**
+ * Sem internet / servidor fora do ar (status 0). Herda de ErroRequisicao pra
+ * todo `catch` existente continuar funcionando; o PDV usa `semConexao` pra
+ * cair no modo offline (arquitetura §2) em vez de mostrar erro.
+ */
+export class ErroSemConexao extends ErroRequisicao {
+  constructor() {
+    super('Sem conexao com o servidor (internet fora do ar?).', 'SEM_CONEXAO', 0)
+  }
+}
+
+export function semConexao(e: unknown): boolean {
+  return e instanceof ErroSemConexao
+}
+
+async function requisitar<T>(
+  caminho: string,
+  opcoes?: RequestInit & { readonly timeoutMs?: number },
+): Promise<T> {
+  const controle = opcoes?.timeoutMs ? new AbortController() : null
+  const temporizador = controle ? setTimeout(() => controle.abort(), opcoes!.timeoutMs) : null
+  let res: Response
+  try {
+    res = await fetch(`/api${caminho}`, {
+      ...opcoes,
+      signal: controle?.signal ?? opcoes?.signal,
+      headers: { 'Content-Type': 'application/json', ...opcoes?.headers },
+    })
+  } catch {
+    // fetch so rejeita por rede (offline, DNS, timeout) -- nunca por HTTP 4xx/5xx.
+    throw new ErroSemConexao()
+  } finally {
+    if (temporizador) clearTimeout(temporizador)
+  }
+  // Proxy do Railway respondendo sem a aplicacao por tras = servidor fora.
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new ErroSemConexao()
+  }
   const corpo = (await res.json().catch(() => ({}))) as T | ErroApi
   if (!res.ok) {
     const erro = corpo as ErroApi
@@ -98,17 +131,28 @@ export function abrirCaixa(fundoTroco: number) {
   })
 }
 
-export function fecharCaixa(valorContado: number) {
+export function fecharCaixa(valorContado: number, filaPendente = 0) {
   return requisitar<{
     sessao: SessaoCaixaApi
     fechamento: { esperado: number; contado: number; diferenca: number }
-  }>('/caixa/fechar', { method: 'POST', body: JSON.stringify({ valorContado }) })
+  }>('/caixa/fechar', { method: 'POST', body: JSON.stringify({ valorContado, filaPendente }) })
 }
+
+/** Timeout curto no balcao: internet ruim nao pode travar a pistola. */
+const TIMEOUT_BALCAO_MS = 6000
 
 export function buscarProdutoPorEan(ean: string) {
   return requisitar<{ produto: ProdutoApi; produtos?: ProdutoApi[] }>(
     `/produtos/ean/${encodeURIComponent(ean)}`,
+    { timeoutMs: TIMEOUT_BALCAO_MS },
   )
+}
+
+/** Catalogo inteiro do balcao, guardado no computador pro modo offline. */
+export function buscarCatalogoPdv() {
+  return requisitar<{ produtos: ProdutoApi[]; geradoEm: string }>('/produtos/catalogo-pdv', {
+    timeoutMs: 30000,
+  })
 }
 
 export function listarEansAtivos() {
@@ -116,7 +160,9 @@ export function listarEansAtivos() {
 }
 
 export function buscarProdutosPorDescricao(termo: string) {
-  return requisitar<{ produtos: ProdutoApi[] }>(`/produtos?q=${encodeURIComponent(termo)}`)
+  return requisitar<{ produtos: ProdutoApi[] }>(`/produtos?q=${encodeURIComponent(termo)}`, {
+    timeoutMs: TIMEOUT_BALCAO_MS,
+  })
 }
 
 export interface ItemVendaApi {
@@ -145,10 +191,13 @@ export function registrarVenda(
   id: string,
   itens: readonly ItemVendaApi[],
   pagamentos: readonly PagamentoVendaApi[],
+  /** So venda feita offline (fila): quando aconteceu no balcao. */
+  ocorridoEm?: string,
 ) {
   return requisitar<VendaConfirmadaApi>('/vendas', {
     method: 'POST',
-    body: JSON.stringify({ id, itens, pagamentos }),
+    body: JSON.stringify({ id, itens, pagamentos, ...(ocorridoEm ? { ocorridoEm } : {}) }),
+    timeoutMs: 15000,
   })
 }
 

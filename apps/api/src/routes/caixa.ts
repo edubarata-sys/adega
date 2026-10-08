@@ -126,7 +126,7 @@ export function registrarRotasCaixa(app: FastifyInstance, deps: DependenciasApp)
     },
   )
 
-  app.post<{ Body: { valorContado?: unknown } }>(
+  app.post<{ Body: { valorContado?: unknown; filaPendente?: unknown } }>(
     '/caixa/fechar',
     { preHandler: requireAuth },
     async (request, reply) => {
@@ -142,11 +142,16 @@ export function registrarRotasCaixa(app: FastifyInstance, deps: DependenciasApp)
         return reply.code(409).send({ status: 'erro', motivo: 'Nenhuma sessao de caixa aberta.' })
       }
 
-      // PWA/offline esta fora do escopo desta missao (nao existe fila local
-      // de dispositivo ainda) -- fila pendente e sempre 0 aqui. Quando a fila
-      // offline existir de verdade, o valor vem do dispositivo no corpo do
-      // POST, nao um 0 fixo.
-      const podeFechar = podeFecharCaixa({ status: 'aberta' }, { vendasPendentesNaFila: 0 })
+      // Vendas feitas offline que ainda estao na fila do PDV (arquitetura §2):
+      // fechar sem elas daria diferenca fantasma no caixa.
+      const filaPendente = Number(request.body?.filaPendente ?? 0)
+      const podeFechar = podeFecharCaixa(
+        { status: 'aberta' },
+        {
+          vendasPendentesNaFila:
+            Number.isInteger(filaPendente) && filaPendente > 0 ? filaPendente : 0,
+        },
+      )
       if (!podeFechar.ok) {
         return reply.code(409).send({ status: 'erro', motivo: podeFechar.erro.mensagem })
       }

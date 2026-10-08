@@ -1671,3 +1671,15 @@ body,
   color: var(--green);
   font-weight: 600;
 }
+
+/* Modo offline (arquitetura §2): aviso discreto no topo do PDV. */
+.pdv-status-offline {
+  background: #5a3b00;
+  color: #ffd56b;
+  border: 1px solid #f2b705;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}

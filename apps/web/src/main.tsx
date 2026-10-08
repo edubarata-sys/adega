@@ -18,3 +18,13 @@ const ehPaginaDeDiagnostico = window.location.pathname.startsWith('/diagnostico'
 createRoot(container).render(
   <StrictMode>{ehPaginaDeDiagnostico ? <DiagnosticoTela /> : <App />}</StrictMode>,
 )
+
+// Modo offline (arquitetura §2): guarda o sistema no computador pra abrir sem
+// internet. So em producao (no dev o Vite recarrega tudo sozinho).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Sem service worker o PDV funciona igual, so nao abre sem internet.
+    })
+  })
+}

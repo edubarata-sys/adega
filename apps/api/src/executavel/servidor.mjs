@@ -83,6 +83,7 @@ const TIPOS_MIME = {
   '.jpeg': 'image/jpeg',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
 }
 
 async function servirEstatico(req, res) {

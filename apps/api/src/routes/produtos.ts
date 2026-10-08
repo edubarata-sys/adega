@@ -1,4 +1,4 @@
-import { classificarVia, VIAS } from '@adega/core'
+import { candidatosEan, classificarVia, VIAS } from '@adega/core'
 import { aplicarMovimentoEstoque, schema } from '@adega/db'
 import { and, desc, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
@@ -102,17 +102,8 @@ const AjusteEstoqueBodySchema = z.object({
  * EXATA por EAN falha silenciosamente pra produtos com codigo de 12 digitos
  * (bebidas importadas, tipicamente) mesmo com o EAN certo na etiqueta.
  */
-export function candidatosEan(eanBruto: string): string[] {
-  const digitos = eanBruto.trim()
-  const candidatos = new Set<string>([digitos])
-  if (digitos.length === 13 && digitos.startsWith('0')) {
-    candidatos.add(digitos.slice(1))
-  }
-  if (digitos.length === 12) {
-    candidatos.add(`0${digitos}`)
-  }
-  return [...candidatos]
-}
+// Movido para @adega/core (offline.ts): o PDV offline usa a mesma regra.
+export { candidatosEan }
 
 // (25/09) Nao bloqueia mais EAN repetido: o mesmo codigo pode estar em
 // varios produtos (gelo por sabor, Coca normal/Zero); GET /produtos/ean/:ean
@@ -210,6 +201,27 @@ export function registrarRotasProdutos(app: FastifyInstance, deps: DependenciasA
    * montar, em segundo plano, o cache de fotos dos produtos (ver
    * apps/web/src/fotoProduto.ts). Sem limite de 200: sao so strings curtas.
    */
+  /**
+   * Catalogo inteiro do balcao (so produtos ativos, campos da busca do PDV)
+   * para o modo offline: o navegador guarda e busca EAN/nome localmente
+   * quando a internet cai (arquitetura §2). Leve: ~1 mil produtos.
+   */
+  app.get('/produtos/catalogo-pdv', { preHandler: requireAuth }, async () => {
+    const produtos = await deps.db
+      .select({
+        id: schema.produtos.id,
+        ean: schema.produtos.ean,
+        descricao: schema.produtos.descricao,
+        precoVenda: schema.produtos.precoVenda,
+        estoqueAtual: schema.estoqueSaldos.quantidade,
+      })
+      .from(schema.produtos)
+      .leftJoin(schema.estoqueSaldos, eq(schema.estoqueSaldos.produtoId, schema.produtos.id))
+      .where(eq(schema.produtos.ativo, true))
+      .orderBy(schema.produtos.descricao)
+    return { produtos, geradoEm: new Date().toISOString() }
+  })
+
   app.get('/produtos/eans', { preHandler: requireAuth }, async () => {
     const linhas = await deps.db
       .select({ ean: schema.produtos.ean })

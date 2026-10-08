@@ -1,15 +1,19 @@
-import { centavos, formatarBRL, FORMAS_PAGAMENTO, type FormaPagamento } from '@adega/core'
+import {
+  calcularVendaOffline,
+  centavos,
+  formatarBRL,
+  FORMAS_PAGAMENTO,
+  gerarLinhasRecibo,
+  type FormaPagamento,
+} from '@adega/core'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { SangriaModal } from './SangriaModal'
 import {
-  buscarProdutoPorEan,
-  buscarProdutosPorDescricao,
   buscarRecibo,
   ErroRequisicao,
   gravarCodigoDeBarras,
   listarEansAtivos,
-  registrarVenda,
   type ProdutoApi,
   type ReciboApi,
   type VendaConfirmadaApi,
@@ -25,6 +29,8 @@ import {
   type PagamentoInformado,
 } from './carrinho'
 import { aquecerCacheDeFotos, buscarFotoProduto } from './fotoProduto'
+import { buscarEanComOffline, buscarNomeComOffline } from './offline/catalogo'
+import { descartarDaFila, enviarVenda, guardarNaFila, useEstadoFila } from './offline/fila'
 import { TopoApp } from './TopoApp'
 
 interface Props {
@@ -184,7 +190,10 @@ export function PdvTela({
   const [erroVenda, setErroVenda] = useState<string | null>(null)
   const [resultado, setResultado] = useState<VendaConfirmadaApi | null>(null)
   const [recibo, setRecibo] = useState<ReciboApi | null>(null)
+  /** Venda guardada no computador porque a internet caiu (sobe sozinha depois). */
+  const [vendaOffline, setVendaOffline] = useState(false)
   const vendaIdRef = useRef<string | null>(null)
+  const estadoFila = useEstadoFila()
 
   // Comprovante (PASSO 8): buscado assim que a venda e confirmada. O texto
   // vem pronto do FakePrinterAdapter (packages/core/recibo.ts) -- a tela so
@@ -195,6 +204,8 @@ export function PdvTela({
       setRecibo(null)
       return
     }
+    // Venda offline: o recibo ja foi montado aqui mesmo (confirmarVenda).
+    if (vendaOffline) return
     let cancelado = false
     void buscarRecibo(resultado.venda.id).then(
       (r) => {
@@ -208,7 +219,7 @@ export function PdvTela({
     return () => {
       cancelado = true
     }
-  }, [resultado])
+  }, [resultado, vendaOffline])
 
   const total = totalCarrinho(carrinho)
   const pago = totalPagamentos(pagamentos)
@@ -307,7 +318,7 @@ export function PdvTela({
     try {
       if (/^\d+$/.test(texto)) {
         try {
-          const { produto, produtos } = await buscarProdutoPorEan(texto)
+          const { produto, produtos } = await buscarEanComOffline(texto)
           if (produtos && produtos.length > 1) {
             // Mesmo codigo em varios produtos (ex.: gelo por sabor): pergunta
             // qual. A quantidade do "3*" continua valendo pro escolhido.
@@ -333,7 +344,7 @@ export function PdvTela({
         setErroBusca('Digite ao menos 2 letras do nome do produto.')
         return
       }
-      const { produtos } = await buscarProdutosPorDescricao(texto)
+      const { produtos } = await buscarNomeComOffline(texto)
       if (produtos.length === 0) {
         setErroBusca(`Nenhum produto encontrado com "${texto}".`)
       } else {
@@ -455,32 +466,87 @@ export function PdvTela({
     setCarrinho([])
     setPagamentos([])
     setResultado(null)
+    setVendaOffline(false)
     setErroVenda(null)
     vendaIdRef.current = null
     eanRef.current?.focus()
   }
 
+  /**
+   * Venda grava NO COMPUTADOR primeiro, sempre (arquitetura §2), e depois sobe.
+   * Com internet, sobe na hora e nada muda pro operador. Sem internet, fica na
+   * fila, o recibo sai daqui mesmo e a venda sobe sozinha quando a internet
+   * voltar. Venda que o servidor recusa (ex.: caixa fechado) sai da fila e
+   * mostra o motivo, como antes.
+   */
   async function confirmarVenda() {
     setErroVenda(null)
     if (carrinho.length === 0) {
       setErroVenda('Carrinho vazio.')
       return
     }
+    const calculada = calcularVendaOffline(
+      carrinho.map((i) => ({
+        produtoId: i.produtoId,
+        descricao: i.descricao,
+        quantidade: i.quantidade,
+        precoUnitario: i.precoUnitario,
+      })),
+      pagamentos,
+    )
+    if (!calculada.ok) {
+      setErroVenda(calculada.motivo)
+      return
+    }
     if (!vendaIdRef.current) {
       vendaIdRef.current = crypto.randomUUID()
     }
+    const ocorridoEm = new Date()
+    const venda = {
+      id: vendaIdRef.current,
+      itens: carrinho.map((i) => ({
+        produtoId: i.produtoId,
+        quantidade: i.quantidade,
+        precoUnitario: i.precoUnitario,
+      })),
+      pagamentos,
+      ocorridoEm: ocorridoEm.toISOString(),
+      total: calculada.valor.total,
+    }
     setEnviandoVenda(true)
     try {
-      const resposta = await registrarVenda(
-        vendaIdRef.current,
-        carrinho.map((i) => ({
-          produtoId: i.produtoId,
-          quantidade: i.quantidade,
-          precoUnitario: i.precoUnitario,
-        })),
-        pagamentos,
-      )
-      setResultado(resposta)
+      await guardarNaFila(venda)
+      const envio = await enviarVenda(venda)
+      if (envio.status === 'enviada') {
+        setResultado(envio.resposta)
+        return
+      }
+      if (envio.status === 'recusada') {
+        await descartarDaFila(venda.id)
+        setErroVenda(envio.motivo)
+        return
+      }
+      // Sem internet: a venda esta guardada e sobe sozinha depois.
+      const v = calculada.valor
+      setVendaOffline(true)
+      setRecibo({
+        linhas: gerarLinhasRecibo({
+          vendaId: venda.id,
+          numero: null,
+          itens: v.itens,
+          subtotal: v.subtotal,
+          desconto: v.desconto,
+          total: v.total,
+          pagamentos: v.pagamentos,
+          operadorNome,
+          ocorridoEm,
+        }),
+        escPosBase64: '',
+      })
+      setResultado({
+        venda: { id: venda.id, total: v.total },
+        pagamentos: v.pagamentos.map((p) => ({ forma: p.forma, valor: p.valor, troco: p.troco })),
+      })
     } catch (e) {
       setErroVenda(e instanceof ErroRequisicao ? e.message : 'Falha ao registrar a venda.')
     } finally {
@@ -518,7 +584,13 @@ export function PdvTela({
           <div className="pdv-coluna pdv-coluna-pagamento">
             <div className="app-card pdv-card-compacto pdv-ultimo-item">
               <div className="app-resultado-icone ok">✓</div>
-              <h2 style={{ margin: 0 }}>Venda registrada</h2>
+              <h2 style={{ margin: 0 }}>{vendaOffline ? 'Venda guardada' : 'Venda registrada'}</h2>
+              {vendaOffline && (
+                <p className="app-aviso" style={{ margin: '8px 0 0' }}>
+                  Sem internet agora. A venda ficou guardada neste computador e sobe sozinha quando
+                  a internet voltar.
+                </p>
+              )}
               <p className="app-total-label" style={{ margin: '8px 0 0' }}>
                 Total
               </p>
@@ -562,6 +634,14 @@ export function PdvTela({
         />
       )}
       <TopoApp titulo="Ponto de venda">
+        {(!estadoFila.online || estadoFila.pendentes > 0 || estadoFila.comErro > 0) && (
+          <span className="pdv-status-offline" role="status">
+            {!estadoFila.online ? 'Sem internet' : 'Enviando vendas'}
+            {estadoFila.pendentes > 0 &&
+              ` · ${estadoFila.pendentes} venda${estadoFila.pendentes > 1 ? 's' : ''} guardada${estadoFila.pendentes > 1 ? 's' : ''}`}
+            {estadoFila.comErro > 0 && ` · ${estadoFila.comErro} com erro (avise o admin)`}
+          </span>
+        )}
         <span>{operadorNome}</span>
         <button
           type="button"

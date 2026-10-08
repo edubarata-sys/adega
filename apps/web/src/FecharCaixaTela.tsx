@@ -1,10 +1,13 @@
 import { formatarBRL, centavos as paraCentavos } from '@adega/core'
 import { useState } from 'react'
 import { ErroRequisicao, fecharCaixa } from './api'
+import { listarFila, sincronizarFila, useEstadoFila } from './offline/fila'
 import { TopoApp } from './TopoApp'
 
 interface Props {
   readonly aoFechar: () => void
+  /** Volta pro PDV sem fechar (ex.: ainda ha vendas guardadas sem internet). */
+  readonly aoVoltar?: () => void
 }
 
 interface ResultadoFechamento {
@@ -20,7 +23,8 @@ interface ResultadoFechamento {
  * viraria teatro -- por isso `resultado` (que contem `esperado`) so existe
  * DEPOIS que o POST /caixa/fechar responde, nunca antes.
  */
-export function FecharCaixaTela({ aoFechar }: Props) {
+export function FecharCaixaTela({ aoFechar, aoVoltar }: Props) {
+  const estadoFila = useEstadoFila()
   const [valorContadoTexto, setValorContadoTexto] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -36,7 +40,18 @@ export function FecharCaixaTela({ aoFechar }: Props) {
     }
     setEnviando(true)
     try {
-      const { fechamento } = await fecharCaixa(centavos)
+      // Vendas feitas sem internet precisam subir ANTES de fechar (arquitetura
+      // §2): fechar sem elas daria diferenca fantasma no caixa.
+      await sincronizarFila()
+      const fila = await listarFila()
+      if (fila.length > 0) {
+        setErro(
+          `Ainda ha ${fila.length} venda(s) guardada(s) neste computador sem subir (sem internet ou com erro). ` +
+            'Feche o caixa quando a internet voltar, ou peca ao admin para resolver as vendas com erro.',
+        )
+        return
+      }
+      const { fechamento } = await fecharCaixa(centavos, fila.length)
       setResultado(fechamento)
     } catch (e) {
       setErro(e instanceof ErroRequisicao ? e.message : 'Falha ao fechar o caixa.')
@@ -78,6 +93,12 @@ export function FecharCaixaTela({ aoFechar }: Props) {
       <TopoApp titulo="Fechar caixa" />
       <main className="app-shell" style={{ maxWidth: 420 }}>
         <div className="app-card">
+          {estadoFila.pendentes + estadoFila.comErro > 0 && (
+            <p className="app-msg-erro" style={{ marginTop: 0 }}>
+              {estadoFila.pendentes + estadoFila.comErro} venda(s) guardada(s) neste computador
+              ainda nao subiram. O caixa so fecha depois que elas subirem.
+            </p>
+          )}
           <p className="app-aviso" style={{ marginTop: 0 }}>
             Conte o dinheiro da gaveta e digite o valor ANTES de confirmar -- o sistema so mostra o
             valor esperado depois que voce confirmar o que contou.
@@ -99,6 +120,11 @@ export function FecharCaixaTela({ aoFechar }: Props) {
               {enviando ? 'Fechando...' : 'Confirmar e fechar caixa'}
             </button>
             {erro && <p className="app-msg-erro">{erro}</p>}
+            {aoVoltar && (
+              <button type="button" onClick={aoVoltar} className="app-btn-outline">
+                Voltar para o caixa
+              </button>
+            )}
           </form>
         </div>
       </main>

@@ -44,7 +44,20 @@ const VendaBodySchema = z.object({
   itens: z.array(ItemBodySchema).min(1),
   descontoGeral: z.number().int().nonnegative().optional(),
   pagamentos: z.array(PagamentoBodySchema).min(1),
+  /** Quando a venda ACONTECEU no balcao. So vem de venda feita offline e
+   * enviada depois pela fila (arquitetura §2); sem ele, vale a hora da chegada. */
+  ocorridoEm: z.string().datetime({ offset: true }).optional(),
 })
+
+/** Hora informada pelo PDV, aceita se nao estiver no futuro (tolera relogio
+ * do PC ate 10 min adiantado). Venda offline antiga e aceita: perder venda e pior. */
+export function horaDaVenda(ocorridoEm: string | undefined, agora: Date): Date | null {
+  if (!ocorridoEm) return agora
+  const quando = new Date(ocorridoEm)
+  if (Number.isNaN(quando.getTime())) return null
+  if (quando.getTime() > agora.getTime() + 10 * 60 * 1000) return null
+  return quando > agora ? agora : quando
+}
 
 async function buscarSessaoCaixaAberta(deps: DependenciasApp) {
   const [sessao] = await deps.db
@@ -275,7 +288,14 @@ export function registrarRotasVendas(app: FastifyInstance, deps: DependenciasApp
     }
 
     const operadorId = request.usuarioAutenticado!.usuarioId
-    const agora = new Date()
+    const agoraOuOffline = horaDaVenda(corpo.ocorridoEm, new Date())
+    if (!agoraOuOffline) {
+      return reply.code(400).send({
+        status: 'erro',
+        motivo: 'Data da venda no futuro -- confira o relogio do computador do caixa.',
+      })
+    }
+    const agora = agoraOuOffline
     const troco: Centavos = resumoPagamento.valor.troco
 
     try {

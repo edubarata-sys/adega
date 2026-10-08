@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { AbrirCaixaTela } from './AbrirCaixaTela'
-import { caixaAtual, eu, logout, type SessaoCaixaApi, type UsuarioSessao } from './api'
+import { caixaAtual, eu, logout, semConexao, type SessaoCaixaApi, type UsuarioSessao } from './api'
+import { iniciarAtualizacaoDoCatalogo } from './offline/catalogo'
+import { iniciarSincronizacaoDaFila } from './offline/fila'
+import { esquecerSessao, lembrarSessao, sessaoGuardada, usuarioGuardado } from './offline/sessao'
 import { FecharCaixaTela } from './FecharCaixaTela'
 import { FinanceiroTela } from './FinanceiroTela'
 import { LoginTela } from './LoginTela'
@@ -100,8 +103,17 @@ function AppPdv() {
         const { usuario } = await eu()
         if (cancelado) return
         await avancarAposLogin(usuario)
-      } catch {
-        if (!cancelado) setEstado({ fase: 'login' })
+      } catch (e) {
+        if (cancelado) return
+        // Sem internet: volta pro caixa que estava aberto neste computador
+        // (as vendas ficam na fila e sobem depois -- arquitetura §2).
+        const usuario = usuarioGuardado()
+        const sessaoCaixa = sessaoGuardada()
+        if (semConexao(e) && usuario && sessaoCaixa) {
+          setEstado({ fase: 'pdv', usuario, sessaoCaixa })
+          return
+        }
+        setEstado({ fase: 'login' })
       }
     }
 
@@ -118,6 +130,17 @@ function AppPdv() {
       cancelado = true
     }
   }, [])
+
+  // Guarda catalogo e sobe a fila de vendas em segundo plano (so no PDV).
+  useEffect(() => {
+    iniciarAtualizacaoDoCatalogo()
+    iniciarSincronizacaoDaFila()
+  }, [])
+
+  useEffect(() => {
+    if (estado.fase === 'pdv') lembrarSessao(estado.usuario, estado.sessaoCaixa)
+    if (estado.fase === 'login' || estado.fase === 'abrindo-caixa') esquecerSessao()
+  }, [estado])
 
   if (estado.fase === 'carregando') {
     return (
@@ -153,6 +176,21 @@ function AppPdv() {
     return (
       <FecharCaixaTela
         aoFechar={() => setEstado({ fase: 'abrindo-caixa', usuario: estado.usuario })}
+        aoVoltar={() => {
+          void caixaAtual().then(
+            ({ sessao }) =>
+              setEstado(
+                sessao
+                  ? { fase: 'pdv', usuario: estado.usuario, sessaoCaixa: sessao }
+                  : { fase: 'abrindo-caixa', usuario: estado.usuario },
+              ),
+            () => {
+              const guardada = sessaoGuardada()
+              if (guardada)
+                setEstado({ fase: 'pdv', usuario: estado.usuario, sessaoCaixa: guardada })
+            },
+          )
+        }}
       />
     )
   }
@@ -203,6 +241,7 @@ function AppPdv() {
       operadorNome={estado.usuario.nome}
       aoQuererFecharCaixa={() => setEstado({ fase: 'fechando-caixa', usuario: estado.usuario })}
       aoSair={() => {
+        esquecerSessao()
         void logout()
           .catch(() => {})
           .finally(() => setEstado({ fase: 'login' }))

@@ -25,6 +25,20 @@ export default tseslint.config(
     },
   },
   {
+    // Service worker do PDV offline (apps/web/public/sw.js): JS puro servido
+    // como esta, roda no contexto do service worker do navegador.
+    files: ['apps/web/public/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        Response: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
+  {
     // Lancador do .exe (apps/api/src/executavel/servidor.mjs): unico arquivo
     // .mjs do repo, roda direto em Node (sem build TS) -- por isso precisa
     // dos globais de Node explicitos, que os arquivos .ts ja tem via
