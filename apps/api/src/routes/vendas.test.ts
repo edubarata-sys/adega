@@ -287,4 +287,63 @@ describe('POST /vendas', () => {
     const vendas = await ctx.db.select().from(schema.vendas)
     expect(vendas).toHaveLength(0)
   })
+
+  it('venda pelo celular entra no mesmo caixa e aparece separada no relatorio (14/10/2026)', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    await abrirCaixa(app, cookies)
+
+    const balcao = await app.inject({
+      method: 'POST',
+      url: '/vendas',
+      cookies,
+      payload: {
+        itens: [{ produtoId: AGUA, quantidade: 1, precoUnitario: 300 }],
+        pagamentos: [{ forma: 'pix', valor: 300 }],
+      },
+    })
+    const celular = await app.inject({
+      method: 'POST',
+      url: '/vendas',
+      cookies,
+      payload: {
+        origem: 'celular',
+        itens: [{ produtoId: CERVEJA, quantidade: 2, precoUnitario: 550 }],
+        pagamentos: [{ forma: 'debito', valor: 1100, terminalApelido: 'Maquininha 3' }],
+      },
+    })
+    expect(balcao.statusCode).toBe(201)
+    expect(celular.statusCode).toBe(201)
+    expect(balcao.json().venda.origem).toBe('pdv')
+    expect(celular.json().venda.origem).toBe('celular')
+    expect(celular.json().venda.sessaoCaixaId).toBe(balcao.json().venda.sessaoCaixaId)
+
+    const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+    const rel = await app.inject({
+      method: 'GET',
+      url: `/relatorios/resumo?inicio=${hoje}&fim=${hoje}`,
+      cookies,
+    })
+    expect(rel.statusCode).toBe(200)
+    expect(rel.json().porOrigem).toEqual({ pdv: 300, celular: 1100 })
+  })
+
+  it('recusa origem desconhecida', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    await abrirCaixa(app, cookies)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/vendas',
+      cookies,
+      payload: {
+        origem: 'whatsapp',
+        itens: [{ produtoId: AGUA, quantidade: 1, precoUnitario: 300 }],
+        pagamentos: [{ forma: 'pix', valor: 300 }],
+      },
+    })
+    expect(res.statusCode).toBe(400)
+  })
 })

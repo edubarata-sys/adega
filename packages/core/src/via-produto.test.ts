@@ -23,6 +23,11 @@ describe('classificarVia', () => {
     ['PASSAPORTE SELECTION', 'adega'],
     ['FUMO DE ROLO AMSTERDAN', 'adega'],
     ['AÇAI ENERGY 70 ML', 'outros'],
+    ['CHOPP BRAHMA 400 ML', 'chopp'],
+    ['CHOPP BRAHMA 3 POR 40,00', 'chopp'],
+    ['BRAHMA CHOPP LATA VERMELHA 350', 'adega'],
+    ['ECOBIER CHOPP', 'adega'],
+    ['CHOPP DE VINHO STEMPEL 600 ML', 'adega'],
   ])('%s -> %s', (descricao, via) => {
     expect(classificarVia(descricao)).toBe(via)
   })

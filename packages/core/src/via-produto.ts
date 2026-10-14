@@ -7,19 +7,22 @@ import type { Centavos } from './dinheiro'
  *  - adega:     cerveja, cigarro e bebidas em geral (inclui doses e drinks)
  *  - outros:    mercearia e afins (petisco, doce, gelo, tabacaria...)
  *  - espetinho: so os espetinhos
+ *  - chopp:     chopp de copo/chopeira (14/10/2026) -- chopp em lata ou
+ *               garrafa e "chopp de vinho" continuam na adega
  *
  * Cada produto guarda a sua via no cadastro (coluna `produtos.via`). Esta
  * classificacao por nome so e usada como SUGESTAO: na migracao dos produtos
  * que ja existiam e no cadastro de produto novo quando a via nao vem
  * informada. O dono pode trocar a via de qualquer produto no cadastro.
  */
-export const VIAS = ['adega', 'outros', 'espetinho'] as const
+export const VIAS = ['adega', 'outros', 'espetinho', 'chopp'] as const
 export type ViaProduto = (typeof VIAS)[number]
 
 export const ROTULO_VIA: Readonly<Record<ViaProduto, string>> = {
   adega: 'Adega',
   outros: 'Outros',
   espetinho: 'Espetinho',
+  chopp: 'Chopp',
 }
 
 export function ehViaProduto(valor: unknown): valor is ViaProduto {
@@ -29,6 +32,10 @@ export function ehViaProduto(valor: unknown): valor is ViaProduto {
 const ESPETINHO = /\b(ESPETINHO|ESPETO)\b/
 /** "ESPETO FINI" e bala em espeto, nao churrasco. */
 const NAO_E_ESPETINHO = /\bFINI\b/
+
+/** Chopp servido (copo/combo): comeca com CHOPP; lata, garrafa e vinho nao. */
+const CHOPP_COPO = /^\s*CHOPP?\b/
+const NAO_E_CHOPP_COPO = /\b(LATA|VINHO|LONG NECK|GARRAFA)\b/
 
 const CIGARRO =
   /\b(CIGARR\w*|MARLBORO|ROTHMANS|DUNHILL|WINSTON|CAMEL|LUCKY STRIKE|CHESTERFIELD|NEW YORK|PANDHORA|EIGHT|GIFT|DJARUM|EGIPT|LM|JC|PAIEIRO|PALHEIRO|GUDAN|CHANCELER|CAVALO DE PALHA|FUMO|AMSTERDAN|ACRENA)\b/
@@ -48,6 +55,7 @@ const BEBIDA = [
 export function classificarVia(descricao: string): ViaProduto {
   const d = descricao.toUpperCase()
   if (ESPETINHO.test(d) && !NAO_E_ESPETINHO.test(d)) return 'espetinho'
+  if (CHOPP_COPO.test(d) && !NAO_E_CHOPP_COPO.test(d)) return 'chopp'
   if (CIGARRO.test(d)) return 'adega'
   if (BEBIDA.some((rx) => rx.test(d))) return 'adega'
   return 'outros'

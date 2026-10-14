@@ -47,6 +47,9 @@ const VendaBodySchema = z.object({
   /** Quando a venda ACONTECEU no balcao. So vem de venda feita offline e
    * enviada depois pela fila (arquitetura §2); sem ele, vale a hora da chegada. */
   ocorridoEm: z.string().datetime({ offset: true }).optional(),
+  /** 14/10/2026: venda feita pelo celular (espaco do espetinho/chopp) entra
+   * no mesmo caixa aberto, so fica marcada pra separar no relatorio. */
+  origem: z.enum(['pdv', 'celular']).default('pdv'),
 })
 
 /** Hora informada pelo PDV, aceita se nao estiver no futuro (tolera relogio
@@ -309,6 +312,7 @@ export function registrarRotasVendas(app: FastifyInstance, deps: DependenciasApp
           desconto: vendaCalculada.valor.desconto,
           total: vendaCalculada.valor.total,
           ocorridoEm: agora,
+          origem: corpo.origem,
         })
 
         for (const [indice, item] of vendaCalculada.valor.itens.entries()) {

@@ -16,6 +16,7 @@ import {
 import { ConteudoEntradaNota } from './EntradaNotaTela'
 import { ConteudoFinanceiro } from './FinanceiroTela'
 import { TopoApp } from './TopoApp'
+import { VendaCelularTela } from './VendaCelularTela'
 import { construtorReconhecimentoDeVoz, type ResultadoReconhecimentoVoz } from './voz'
 
 interface Props {
@@ -23,7 +24,7 @@ interface Props {
   readonly aoSair: () => void
 }
 
-type Aba = 'estoque' | 'nota' | 'caixa' | 'relatorio' | 'financeiro'
+type Aba = 'venda' | 'estoque' | 'nota' | 'caixa' | 'relatorio' | 'financeiro'
 
 /**
  * Painel admin mobile (HANDOFF.md secao 12 -- combinado com o cliente):
@@ -32,7 +33,8 @@ type Aba = 'estoque' | 'nota' | 'caixa' | 'relatorio' | 'financeiro'
  * caixa (so leitura) e gerar o XML da contadora.
  */
 export function PainelMobileTela({ usuario, aoSair }: Props) {
-  const [aba, setAba] = useState<Aba>('estoque')
+  // 14/10/2026: abre na venda -- o uso do dia a dia e vender no espaco da frente.
+  const [aba, setAba] = useState<Aba>('venda')
 
   async function sair() {
     await logout().catch(() => {})
@@ -49,6 +51,7 @@ export function PainelMobileTela({ usuario, aoSair }: Props) {
       </TopoApp>
       <main className="app-shell mobile-shell" style={{ maxWidth: 480 }}>
         <div className="app-card">
+          {aba === 'venda' && <VendaCelularTela />}
           {aba === 'estoque' && <AbaEstoquePorVoz />}
           {aba === 'nota' && <ConteudoEntradaNota compacto />}
           {aba === 'caixa' && <AbaCaixa />}
@@ -58,6 +61,15 @@ export function PainelMobileTela({ usuario, aoSair }: Props) {
       </main>
 
       <nav className="mobile-tabbar">
+        <button
+          type="button"
+          className="mobile-tab-btn"
+          aria-pressed={aba === 'venda'}
+          onClick={() => setAba('venda')}
+        >
+          <span className="mobile-tab-icone">{'\u{1F6D2}'}</span>
+          Venda
+        </button>
         <button
           type="button"
           className="mobile-tab-btn"

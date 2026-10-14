@@ -581,6 +581,7 @@ export function ProdutosTela({ aoVoltar, eanInicial }: Props) {
                   <option value="adega">Adega (bebidas e cigarro)</option>
                   <option value="outros">Outros (mercearia e afins)</option>
                   <option value="espetinho">Espetinho</option>
+                  <option value="chopp">Chopp (copo)</option>
                 </select>
               </label>
               <div style={{ display: 'flex', gap: 8 }}>

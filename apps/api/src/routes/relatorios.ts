@@ -49,6 +49,8 @@ interface VendaFiltrada {
   numero: number | null
   ocorridoEm: Date
   total: number
+  /** 'pdv' (balcao) ou 'celular' (14/10/2026). */
+  origem: 'pdv' | 'celular'
   pagamentos: PagamentoDaVenda[]
 }
 
@@ -71,6 +73,7 @@ async function buscarVendasFiltradas(
       numero: schema.vendas.numero,
       ocorridoEm: schema.vendas.ocorridoEm,
       total: schema.vendas.total,
+      origem: schema.vendas.origem,
     })
     .from(schema.vendas)
     .where(
@@ -139,6 +142,7 @@ async function buscarVendasFiltradas(
       numero: v.numero,
       ocorridoEm: v.ocorridoEm,
       total: parte.total,
+      origem: v.origem,
       pagamentos: parte.pagamentos.map((p) => ({ ...p.pagamento, valorLiquido: p.valor })),
     })
   }
@@ -211,8 +215,10 @@ export async function montarResumoPeriodo(
   // Por dia (no fuso da loja).
   const porDiaMapa = new Map<string, { data: string; vendas: number; total: number }>()
   let totalVendido = 0
+  const porOrigem = { pdv: 0, celular: 0 }
   for (const v of vendasPeriodo) {
     totalVendido += v.total
+    porOrigem[v.origem] += v.total
     const data = dataLojaIso(v.ocorridoEm)
     const dia = porDiaMapa.get(data) ?? { data, vendas: 0, total: 0 }
     dia.vendas += 1
@@ -320,6 +326,8 @@ export async function montarResumoPeriodo(
       faturamentoSemCusto,
       produtosSemCusto: produtos.filter((p) => p.custo === null).length,
     },
+    /** Quanto foi vendido no balcao e pelo celular (14/10/2026). */
+    porOrigem,
     porDia: [...porDiaMapa.values()],
     porPagamento: [...porPagamentoMapa.values()].sort((a, b) => b.valor - a.valor),
     produtos,

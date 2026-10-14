@@ -276,6 +276,9 @@ export function RelatoriosTela({ aoVoltar }: Props) {
                 rotulo="Margem media"
                 valor={r.margem === null ? '-' : `${r.margem.toLocaleString('pt-BR')}%`}
               />
+              {dados.porOrigem && dados.porOrigem.celular > 0 && (
+                <Cartao rotulo="Vendido pelo celular" valor={brl(dados.porOrigem.celular)} />
+              )}
             </div>
             {(r.produtosSemCusto > 0 || dados.cadastro.produtosAtivosSemCusto > 0) && (
               <p className="app-aviso" style={{ marginTop: 12 }}>

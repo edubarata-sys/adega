@@ -57,9 +57,12 @@ export const tipoMovimentoCaixa = pgEnum('tipo_movimento_caixa', [
   'despesa',
   'entrada_avulsa',
 ])
+/** Onde a venda foi feita (14/10/2026). */
+export const origemVenda = pgEnum('origem_venda', ['pdv', 'celular'])
+
 /** Via do caixa (02/10/2026): divide os RELATORIOS em Adega / Outros /
- * Espetinho -- o balcao continua um caixa so. Ver @adega/core via-produto. */
-export const viaProduto = pgEnum('via_produto', ['adega', 'outros', 'espetinho'])
+ * Espetinho / Chopp -- o balcao continua um caixa so. Ver @adega/core via-produto. */
+export const viaProduto = pgEnum('via_produto', ['adega', 'outros', 'espetinho', 'chopp'])
 export const perfilUsuario = pgEnum('perfil_usuario', ['admin', 'caixa'])
 
 export const usuarios = pgTable(
@@ -240,6 +243,9 @@ export const vendas = pgTable(
     canceladaEm: agora(),
     canceladaPor: uuid().references(() => usuarios.id),
     motivoCancelamento: text(),
+    /** De onde saiu a venda (14/10/2026): 'pdv' = balcao, 'celular' = venda
+     * pelo /mobile no espaco do espetinho/chopp. So separa relatorio. */
+    origem: origemVenda().notNull().default('pdv'),
   },
   (t) => [
     index('vendas_ocorrido_em_idx').on(t.ocorridoEm),

@@ -193,10 +193,18 @@ export function registrarVenda(
   pagamentos: readonly PagamentoVendaApi[],
   /** So venda feita offline (fila): quando aconteceu no balcao. */
   ocorridoEm?: string,
+  /** 'celular' = venda pelo /mobile (14/10/2026). */
+  origem: 'pdv' | 'celular' = 'pdv',
 ) {
   return requisitar<VendaConfirmadaApi>('/vendas', {
     method: 'POST',
-    body: JSON.stringify({ id, itens, pagamentos, ...(ocorridoEm ? { ocorridoEm } : {}) }),
+    body: JSON.stringify({
+      id,
+      itens,
+      pagamentos,
+      ...(ocorridoEm ? { ocorridoEm } : {}),
+      ...(origem === 'celular' ? { origem } : {}),
+    }),
     timeoutMs: 15000,
   })
 }
@@ -242,13 +250,14 @@ export interface ProdutoCadastroApi {
 }
 
 /** Vias do caixa: o balcao vende tudo junto, so os relatorios dividem. */
-export type ViaProduto = 'adega' | 'outros' | 'espetinho'
+export type ViaProduto = 'adega' | 'outros' | 'espetinho' | 'chopp'
 export type FiltroVia = 'geral' | ViaProduto
 export const OPCOES_VIA: readonly { valor: FiltroVia; rotulo: string }[] = [
   { valor: 'geral', rotulo: 'Geral' },
   { valor: 'adega', rotulo: 'Adega' },
   { valor: 'outros', rotulo: 'Outros' },
   { valor: 'espetinho', rotulo: 'Espetinho' },
+  { valor: 'chopp', rotulo: 'Chopp' },
 ]
 
 export interface CategoriaApi {
@@ -364,6 +373,8 @@ export interface RelatorioResumoApi {
     readonly faturamentoSemCusto: number
     readonly produtosSemCusto: number
   }
+  /** Balcao x celular (14/10/2026). Opcional: API antiga nao manda. */
+  readonly porOrigem?: { readonly pdv: number; readonly celular: number }
   readonly porDia: readonly {
     readonly data: string
     readonly vendas: number

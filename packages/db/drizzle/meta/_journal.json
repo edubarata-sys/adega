@@ -36,6 +36,13 @@
       "when": 1791290501998,
       "tag": "0004_financeiro_pessoal",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792004046686,
+      "tag": "0005_chopp_origem_venda",
+      "breakpoints": true
     }
   ]
 }
