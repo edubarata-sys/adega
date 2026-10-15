@@ -366,6 +366,14 @@ export function registrarRotasVendas(app: FastifyInstance, deps: DependenciasApp
 
       return reply.code(201).send(resultado)
     } catch (erro) {
+      // Corrida de reenvio (15/10/2026): o PDV mandou a MESMA venda duas vezes
+      // ao mesmo tempo (envio direto + timer da fila). A primeira grava; a
+      // segunda bate na chave primaria (23505) -- isso nao e erro, e a
+      // idempotencia: devolve a venda ja gravada como 200.
+      if (violouChaveUnica(erro)) {
+        const gravada = await buscarVendaCompleta(deps, vendaId)
+        if (gravada) return reply.code(200).send({ ...gravada, idempotente: true })
+      }
       const mensagem = erro instanceof Error ? erro.message : String(erro)
       request.log.error(
         { erro: mensagem, vendaId },
@@ -378,4 +386,14 @@ export function registrarRotasVendas(app: FastifyInstance, deps: DependenciasApp
       })
     }
   })
+}
+
+/** Postgres 23505 (unique_violation) -- o driver pode aninhar em `cause`. */
+function violouChaveUnica(erro: unknown): boolean {
+  let atual: unknown = erro
+  for (let i = 0; i < 3 && atual && typeof atual === 'object'; i++) {
+    if ((atual as { code?: unknown }).code === '23505') return true
+    atual = (atual as { cause?: unknown }).cause
+  }
+  return false
 }

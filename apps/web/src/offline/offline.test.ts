@@ -108,6 +108,28 @@ describe('fila de vendas', () => {
     expect(fila.every((v) => v.erro?.includes('caixa'))).toBe(true)
   })
 
+  it('erro 500 nao marca a venda como recusada (tenta de novo depois)', async () => {
+    await guardarNaFila(venda('v1'))
+    respostaVenda = { status: 500, corpo: { status: 'erro', motivo: 'falha' } }
+    expect(await sincronizarFila()).toBe(0)
+    const fila = await listarFila()
+    expect(fila).toHaveLength(1)
+    expect(fila[0]?.erro).toBeUndefined()
+  })
+
+  it('reTentarComErro reenvia venda presa com erro e ela sai da fila', async () => {
+    internet = false
+    await guardarNaFila(venda('v1'))
+    internet = true
+    respostaVenda = { status: 409, corpo: { status: 'erro', motivo: 'caixa fechado' } }
+    await sincronizarFila()
+    expect((await listarFila())[0]?.erro).toBeDefined()
+    respostaVenda = { status: 201, corpo: { venda: { id: 'x', total: 550 }, pagamentos: [] } }
+    expect(await sincronizarFila()).toBe(0)
+    expect(await sincronizarFila({ reTentarComErro: true })).toBe(1)
+    expect(await listarFila()).toHaveLength(0)
+  })
+
   it('servidor fora do ar (502) conta como sem internet', async () => {
     await guardarNaFila(venda('v1'))
     respostaVenda = { status: 502, corpo: {} }

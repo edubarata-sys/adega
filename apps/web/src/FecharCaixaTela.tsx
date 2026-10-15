@@ -42,7 +42,7 @@ export function FecharCaixaTela({ aoFechar, aoVoltar }: Props) {
     try {
       // Vendas feitas sem internet precisam subir ANTES de fechar (arquitetura
       // §2): fechar sem elas daria diferenca fantasma no caixa.
-      await sincronizarFila()
+      await sincronizarFila({ reTentarComErro: true })
       const fila = await listarFila()
       if (fila.length > 0) {
         setErro(

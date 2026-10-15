@@ -88,6 +88,9 @@ export async function enviarVenda(venda: VendaNaFila): Promise<ResultadoEnvio> {
     if (semConexao(e)) return { status: 'sem-conexao' }
     // Sessao expirada: nao e erro da venda, espera o login.
     if (e instanceof ErroRequisicao && e.status === 401) return { status: 'sem-conexao' }
+    // 5xx = falha do servidor, nao recusa da venda (15/10/2026: 12 vendas
+    // ficaram presas marcadas com erro por um 500 de corrida). Tenta de novo depois.
+    if (e instanceof ErroRequisicao && (e.status ?? 0) >= 500) return { status: 'sem-conexao' }
     const motivo = e instanceof Error ? e.message : 'Erro desconhecido.'
     await marcarErro(venda.id, motivo)
     return { status: 'recusada', motivo }
@@ -96,14 +99,22 @@ export async function enviarVenda(venda: VendaNaFila): Promise<ResultadoEnvio> {
 
 let sincronizando = false
 
-/** Sobe a fila em ordem; para no primeiro sinal de falta de internet. */
-export async function sincronizarFila(): Promise<number> {
+/**
+ * Sobe a fila em ordem; para no primeiro sinal de falta de internet.
+ * `reTentarComErro`: tambem reenvia as marcadas com erro (ao abrir o PDV e
+ * ao fechar o caixa). Seguro porque POST /vendas e idempotente pelo id: venda
+ * que ja estava gravada volta 200 e sai da fila; recusa de verdade (4xx)
+ * so fica marcada de novo.
+ */
+export async function sincronizarFila(
+  opcoes: { readonly reTentarComErro?: boolean } = {},
+): Promise<number> {
   if (sincronizando) return 0
   sincronizando = true
   let enviadas = 0
   try {
     for (const venda of await ler()) {
-      if (venda.erro) continue
+      if (venda.erro && !opcoes.reTentarComErro) continue
       const r = await enviarVenda(venda)
       if (r.status === 'sem-conexao') break
       if (r.status === 'enviada') enviadas++
@@ -119,7 +130,7 @@ let iniciado = false
 export function iniciarSincronizacaoDaFila(): void {
   if (iniciado || typeof window === 'undefined') return
   iniciado = true
-  void sincronizarFila()
+  void sincronizarFila({ reTentarComErro: true })
   setInterval(() => void sincronizarFila(), INTERVALO_MS)
   window.addEventListener('online', () => void sincronizarFila())
 }
