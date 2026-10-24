@@ -598,6 +598,21 @@ body,
   margin: 0;
 }
 
+/* Resultados da busca por nome: lista rola por dentro (senao os ultimos
+ * ficam cortados fora da tela e o operador nao consegue chegar neles). */
+.pdv-sugestoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 45vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pdv-sugestoes > button {
+  flex: 0 0 auto;
+}
+
 /* Celular/tela estreita: nao cabe lado a lado, volta pro empilhado normal. */
 @media (max-width: 900px) {
   .pdv-tela {

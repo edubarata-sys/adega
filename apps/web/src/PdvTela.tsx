@@ -730,7 +730,7 @@ export function PdvTela({
               </p>
             )}
             {sugestoes.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              <div className="pdv-sugestoes">
                 {sugestoes.map((p) => (
                   <button
                     key={p.id}
