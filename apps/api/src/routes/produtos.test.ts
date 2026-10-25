@@ -89,6 +89,38 @@ describe('GET /produtos?q=', () => {
     }
   })
 
+  it('acha produto cadastrado em CAIXA ALTA com acento (PAÇOCÃO, PÉRGOLA)', async () => {
+    await seedDados(ctx.db)
+    const app = novoApp()
+    const cookies = await cookieAdmin(app)
+    for (const descricao of ['DOCE PAÇOCÃO', 'VINHO PÉRGOLA 750 ML']) {
+      const criado = await app.inject({
+        method: 'POST',
+        url: '/produtos',
+        cookies,
+        payload: { descricao, precoVenda: 500 },
+      })
+      expect(criado.statusCode).toBe(201)
+    }
+    const casos: Array<[string, string]> = [
+      ['paçoca', 'DOCE PAÇOCÃO'],
+      ['pacocao', 'DOCE PAÇOCÃO'],
+      ['PAÇOCÃO', 'DOCE PAÇOCÃO'],
+      ['vinho pergola', 'VINHO PÉRGOLA 750 ML'],
+      ['pérgola 750', 'VINHO PÉRGOLA 750 ML'],
+    ]
+    for (const [q, esperado] of casos) {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/produtos?q=${encodeURIComponent(q)}`,
+        cookies,
+      })
+      expect(res.statusCode).toBe(200)
+      const corpo = res.json() as { produtos: Array<Record<string, unknown>> }
+      expect(corpo.produtos.map((x) => x.descricao), `busca "${q}"`).toContain(esperado)
+    }
+  })
+
   it('recusa termo de busca curto demais', async () => {
     await seedDados(ctx.db)
     const app = novoApp()

@@ -9,8 +9,11 @@ import { criarRequireAuth } from '../seguranca/autenticacao'
 const LIMITE_BUSCA_DESCRICAO = 20
 const LIMITE_CADASTRO_PADRAO = 200
 
-const COM_ACENTO = 'áàâãäéèêëíìîïóòôõöúùûüçñ'
-const SEM_ACENTO = 'aaaaaeeeeiiiiooooouuuucn'
+// Maiusculas acentuadas entram na lista: o banco de producao usa locale "C",
+// onde lower() so converte A-Z e 'PAÇOCÃO' ficaria 'paÇocÃo' (busca nao achava).
+// Por isso o acento sai ANTES do lower().
+const COM_ACENTO = 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ'
+const SEM_ACENTO = 'aaaaaeeeeiiiiooooouuuucnAAAAAEEEEIIIIOOOOOUUUUCN'
 
 /**
  * Busca por nome do jeito que o balconista digita (26/09): cada PALAVRA tem
@@ -27,7 +30,7 @@ export function condicaoBuscaPorNome(termo: string): SQL | undefined {
     .split(/\s+/)
     .filter(Boolean)
   if (palavras.length === 0) return undefined
-  const nome = sql`translate(lower(${schema.produtos.descricao}), ${COM_ACENTO}, ${SEM_ACENTO})`
+  const nome = sql`lower(translate(${schema.produtos.descricao}, ${COM_ACENTO}, ${SEM_ACENTO}))`
   return and(...palavras.map((p) => sql`${nome} like ${`%${p.replace(/[\\%_]/g, '\\$&')}%`}`))
 }
 
